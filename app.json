@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "chill",
+    "name": "Chill",
     "slug": "chill",
     "version": "1.0.0",
+    "scheme": "chill",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,15 +21,20 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.alan101.chill"
+      "package": "com.alan101.chill",
+      "versionCode": 1
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "extra": {
       "eas": {
         "projectId": "d064a241-2d2a-471e-837d-6b1fdc5f5ab4"
       }
-    }
+    },
+    "plugins": [
+      "expo-router"
+    ]
   }
 }

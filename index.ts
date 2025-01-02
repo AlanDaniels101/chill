@@ -9,7 +9,6 @@ registerRootComponent(App);
 
 
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
     apiKey: "AIzaSyD0VmqD08KTLKKxLEiAcvF-6xnup0-L0mY",
@@ -22,4 +21,3 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
