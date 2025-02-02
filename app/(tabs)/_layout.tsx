@@ -1,8 +1,22 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Text } from 'react-native';
+
+import { useAuth } from '../../ctx';
 
 export default function TabLayout() {
+  const { userId, isLoading } = useAuth()
+
+  if (isLoading) {
+    return <Text>Loading</Text>
+  }
+
+  if (!userId) {
+    return <Redirect href="/login" />
+  }
+  
   return (
+    
     <Tabs
         screenOptions={{
             tabBarActiveTintColor: '#ffd33d',

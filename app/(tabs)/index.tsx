@@ -2,11 +2,16 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router'
 
+import { useAuth } from '../../ctx';
+
 export default function Index() {
+  const { signOut } = useAuth();
+
   return (
     <View style={styles.container}>
       <Text style={styles.text}>Home screen!</Text>
       <Link href="/about" style={styles.button}>Go to About</Link>
+      <Text onPress={() => signOut()}>Log out</Text>
       <StatusBar style="light" />
     </View>
   );
