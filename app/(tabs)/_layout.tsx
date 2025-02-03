@@ -48,6 +48,12 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="group/[id]"
+        options={{
+          tabBarItemStyle: {display: 'none'}
+        }}
+      />
     </Tabs>
   );
 }
