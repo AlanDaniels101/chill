@@ -4,8 +4,21 @@ import { Link } from 'expo-router'
 
 import { useAuth } from '../../ctx';
 
+import db from '@react-native-firebase/database';
+import { useEffect } from 'react';
+
 export default function Index() {
   const { signOut } = useAuth();
+  
+
+  useEffect(() => {
+    const getGroups = async () => {
+      const val = (await db().ref('/groups').once('value')).val()
+      console.log(val)
+    }
+
+    getGroups()
+  })
 
   return (
     <View style={styles.container}>
@@ -20,7 +33,7 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#25292e',
+    backgroundColor: '#7dacf9',
     alignItems: 'center',
     justifyContent: 'center',
   },
