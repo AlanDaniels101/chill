@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useContext, createContext, type PropsWithChildren, useEffect, useState } from 'react';
 
-import auth from '@react-native-firebase/auth'
+import { getAuth } from '@react-native-firebase/auth'
 
 const AuthContext = createContext(
   {
@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     const signIn = async () => {
       try {
         setIsLoading(true)
-        const result = await auth().signInWithPhoneNumber('+16505554948')
+        const result = await getAuth().signInWithPhoneNumber('+16505554948')
         await result.confirm('123321')
       } catch (e) {
         console.log(e)
@@ -28,14 +28,14 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
     const signOut = async () => {
       try {
-        await auth().signOut()
+        await getAuth().signOut()
       } catch (e) {
         console.log(e)
       }
     }
 
     useEffect(() => {
-      const unsubscribe = auth().onAuthStateChanged(user => {
+      const unsubscribe = getAuth().onAuthStateChanged(user => {
         setUserId(user?.uid ?? '')
         setIsLoading(false)
         if (user) {

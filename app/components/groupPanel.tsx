@@ -3,11 +3,16 @@
 import { View, StyleSheet } from 'react-native'
 import { Link } from 'expo-router'
 import { Group } from '../../types'
+import React from 'react'
 
-export default function GroupPanel(props: {group: Group}) {
+interface GroupPanelProps {
+    group: Group
+}
+
+const GroupPanel: React.FC<GroupPanelProps> = ({group}) => {
     return (
         <View style={styles.groupPanel}>
-            <Link href={`/group/${props.group.id}?name=${props.group.name}`}>{props.group.name}</Link>
+            <Link href={`/group/${group.id}?name=${group.name}`}>{group.name}</Link>
         </View>
     )
 }
@@ -17,3 +22,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff'
   },
 });
+
+export default GroupPanel
