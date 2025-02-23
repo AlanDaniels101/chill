@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
-import { Text, View, StyleSheet, Pressable, Image } from 'react-native'
+import { Text, View, StyleSheet, Pressable, Image, Modal, TextInput, Alert } from 'react-native'
 import { Group, Hangout, GroupIcon, User } from '../../../types'
 import { useAuth } from '../../../ctx'
 
@@ -9,6 +9,7 @@ import React from 'react';
 import HangoutCard from '../../components/handoutCard';
 import IconSelector from '../../components/IconSelector';
 import { MaterialIcons } from '@expo/vector-icons';
+import AddMemberModal from '../../components/AddMemberModal';
 
 export default function GroupPage() {
     const navigation = useNavigation()
@@ -22,6 +23,8 @@ export default function GroupPage() {
     const [hangouts, setHangouts] = useState<Hangout[]>()
     const [isEditingIcon, setIsEditingIcon] = useState(false);
     const [users, setUsers] = useState<{ [key: string]: User }>({});
+    const [isAddingMember, setIsAddingMember] = useState(false);
+    const [newMemberUid, setNewMemberUid] = useState('');
     
     useEffect(() => {
         setLoadComplete(false)
@@ -127,6 +130,33 @@ export default function GroupPage() {
         }
     };
 
+    const addMember = async () => {
+        if (!group?.id || !newMemberUid.trim()) return;
+        
+        try {
+            // Check if user exists
+            const userSnapshot = await getDatabase()
+                .ref(`/users/${newMemberUid}`)
+                .once('value');
+            
+            if (!userSnapshot.exists()) {
+                Alert.alert('Error', 'User not found');
+                return;
+            }
+
+            // Add user to members
+            await getDatabase()
+                .ref(`/groups/${group.id}/members/${newMemberUid}`)
+                .set(true);
+            
+            setNewMemberUid('');
+            setIsAddingMember(false);
+        } catch (error) {
+            console.error('Error adding member:', error);
+            Alert.alert('Error', 'Failed to add member');
+        }
+    };
+
     if (!loadComplete) return null
 
     const isAdmin = userId && group?.admins?.[userId];
@@ -186,7 +216,18 @@ export default function GroupPage() {
             </View>
 
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Members</Text>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Members</Text>
+                    {isAdmin && (
+                        <Pressable 
+                            style={styles.addButton}
+                            onPress={() => setIsAddingMember(true)}
+                        >
+                            <MaterialIcons name="person-add" size={20} color="#5c8ed6" />
+                            <Text style={styles.addButtonText}>Add Member</Text>
+                        </Pressable>
+                    )}
+                </View>
                 <View style={styles.userList}>
                     <View style={styles.userSection}>
                         <Text style={styles.userSectionTitle}>Admins</Text>
@@ -259,6 +300,12 @@ export default function GroupPage() {
                     <Text style={styles.deleteButtonText}>Delete Group</Text>
                 </Pressable>
             )}
+
+            <AddMemberModal 
+                visible={isAddingMember}
+                groupId={group?.id || ''}
+                onClose={() => setIsAddingMember(false)}
+            />
         </View>
     )
 }
@@ -325,22 +372,26 @@ const styles = StyleSheet.create({
         color: '#666',
     },
     section: {
-        marginBottom: 24,
+        marginVertical: 24,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 12,
     },
     sectionTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        marginBottom: 12,
         color: '#2c3e50',
     },
     userList: {
         backgroundColor: '#fff',
         borderRadius: 12,
-        padding: 16,
-        gap: 16,
+        padding: 12,
     },
     userSection: {
-        gap: 8,
+        marginBottom: 16,
     },
     userSectionTitle: {
         fontSize: 16,
@@ -352,7 +403,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 8,
-        paddingHorizontal: 4,
+        paddingHorizontal: 8,
     },
     adminIcon: {
         marginRight: 8,
@@ -363,25 +414,91 @@ const styles = StyleSheet.create({
     userName: {
         fontSize: 16,
         color: '#2c3e50',
+        flex: 1,
+        marginRight: 8,
+    },
+    actionButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     adminToggle: {
-        marginLeft: 'auto',
         backgroundColor: '#f0f0f0',
         paddingVertical: 4,
         paddingHorizontal: 8,
         borderRadius: 4,
+        alignItems: 'center',
     },
     adminToggleText: {
         color: '#666',
         fontSize: 12,
     },
-    actionButtons: {
-        marginLeft: 'auto',
+    removeButton: {
+        padding: 4,
+    },
+    addButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        backgroundColor: '#f0f0f0',
+        borderRadius: 8,
     },
-    removeButton: {
-        padding: 4,
+    addButtonText: {
+        color: '#5c8ed6',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 20,
+        width: '80%',
+        gap: 16,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#2c3e50',
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 16,
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 12,
+    },
+    modalButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 6,
+        minWidth: 80,
+        alignItems: 'center',
+    },
+    addMemberButton: {
+        backgroundColor: '#5c8ed6',
+    },
+    buttonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '500',
     },
 });
