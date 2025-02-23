@@ -1,6 +1,8 @@
 import { Modal, View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
 import { useState } from 'react';
 import { getDatabase } from '@react-native-firebase/database';
+import { useAuth } from '../../ctx';
+import { useRouter } from 'expo-router';
 
 type Props = {
   visible: boolean;
@@ -9,17 +11,24 @@ type Props = {
 
 export default function CreateGroupModal({ visible, onClose }: Props) {
   const [newGroupName, setNewGroupName] = useState('');
+  const { userId } = useAuth();
+  const router = useRouter();
 
   const handleCreateGroup = async () => {
-    if (!newGroupName.trim()) return;
+    if (!newGroupName.trim() || !userId) return;
 
     try {
-      await getDatabase().ref('/groups').push({
+      const newGroupRef = await getDatabase().ref('/groups').push({
         name: newGroupName,
-        hangouts: {}
+        hangouts: {},
+        admins: {
+          [userId]: true
+        }
       });
+      
       setNewGroupName('');
       onClose();
+      router.push(`/group/${newGroupRef.key}?name=${newGroupName}`);
     } catch (error) {
       console.error('Error creating group:', error);
     }
