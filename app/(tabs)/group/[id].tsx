@@ -94,6 +94,39 @@ export default function GroupPage() {
         }
     };
 
+    const toggleUserAdmin = async (userId: string, isCurrentlyAdmin: boolean) => {
+        if (!group?.id) return;
+        
+        try {
+            const updates: { [key: string]: any } = {};
+            
+            if (isCurrentlyAdmin) {
+                // Remove from admins, ensure they're in members
+                updates[`/groups/${group.id}/admins/${userId}`] = null;
+                updates[`/groups/${group.id}/members/${userId}`] = true;
+            } else {
+                // Add to admins
+                updates[`/groups/${group.id}/admins/${userId}`] = true;
+            }
+            
+            await getDatabase().ref().update(updates);
+        } catch (error) {
+            console.error('Error toggling admin status:', error);
+        }
+    };
+
+    const removeMember = async (userId: string) => {
+        if (!group?.id) return;
+        
+        try {
+            await getDatabase()
+                .ref(`/groups/${group.id}/members/${userId}`)
+                .remove();
+        } catch (error) {
+            console.error('Error removing member:', error);
+        }
+    };
+
     if (!loadComplete) return null
 
     const isAdmin = userId && group?.admins?.[userId];
@@ -168,6 +201,14 @@ export default function GroupPage() {
                                 <Text style={styles.userName}>
                                     {users[uid]?.name || 'Loading...'}
                                 </Text>
+                                {isAdmin && uid !== userId && (
+                                    <Pressable 
+                                        style={styles.adminToggle}
+                                        onPress={() => toggleUserAdmin(uid, true)}
+                                    >
+                                        <Text style={styles.adminToggleText}>Make Member</Text>
+                                    </Pressable>
+                                )}
                             </View>
                         ))}
                     </View>
@@ -187,6 +228,22 @@ export default function GroupPage() {
                                     <Text style={styles.userName}>
                                         {users[uid]?.name || 'Loading...'}
                                     </Text>
+                                    {isAdmin && (
+                                        <View style={styles.actionButtons}>
+                                            <Pressable 
+                                                style={styles.adminToggle}
+                                                onPress={() => toggleUserAdmin(uid, false)}
+                                            >
+                                                <Text style={styles.adminToggleText}>Make Admin</Text>
+                                            </Pressable>
+                                            <Pressable 
+                                                style={styles.removeButton}
+                                                onPress={() => removeMember(uid)}
+                                            >
+                                                <MaterialIcons name="remove-circle-outline" size={20} color="#ff4444" />
+                                            </Pressable>
+                                        </View>
+                                    )}
                                 </View>
                             ))
                         }
@@ -294,7 +351,8 @@ const styles = StyleSheet.create({
     userItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 4,
+        paddingVertical: 8,
+        paddingHorizontal: 4,
     },
     adminIcon: {
         marginRight: 8,
@@ -305,5 +363,25 @@ const styles = StyleSheet.create({
     userName: {
         fontSize: 16,
         color: '#2c3e50',
+    },
+    adminToggle: {
+        marginLeft: 'auto',
+        backgroundColor: '#f0f0f0',
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 4,
+    },
+    adminToggleText: {
+        color: '#666',
+        fontSize: 12,
+    },
+    actionButtons: {
+        marginLeft: 'auto',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    removeButton: {
+        padding: 4,
     },
 });
