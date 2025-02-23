@@ -1,7 +1,6 @@
 import { Redirect, Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Text } from 'react-native';
-
 import { useAuth } from '../../ctx';
 
 export default function TabLayout() {
@@ -16,42 +15,53 @@ export default function TabLayout() {
   }
   
   return (
-    
     <Tabs
-        screenOptions={{
-            tabBarActiveTintColor: '#ffd33d',
-            headerStyle: {
-                backgroundColor: '#7dacf9',
-              },
-              headerShadowVisible: false,
-              headerTintColor: '#fff',
-              tabBarStyle: {
-              backgroundColor: '#7dacf9',
-            },
-        }}
+      screenOptions={{
+        tabBarActiveTintColor: '#ffd33d',
+        headerStyle: {
+          backgroundColor: '#7dacf9',
+        },
+        headerShadowVisible: false,
+        headerTintColor: '#fff',
+        tabBarStyle: {
+          backgroundColor: '#7dacf9',
+        },
+      }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: 'Groups',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home-sharp' : 'home-outline'} color={color} size={24} />
+            <Ionicons name={focused ? 'people' : 'people-outline'} color={color} size={24} />
           ),
         }}
       />
       <Tabs.Screen
-        name="about"
+        name="profile"
         options={{
-          title: 'About',
+          title: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'information-circle' : 'information-circle-outline'} color={color} size={24}/>
+            <Ionicons name={focused ? 'person' : 'person-outline'} color={color} size={24} />
           ),
         }}
       />
       <Tabs.Screen
         name="group/[id]"
         options={{
-          tabBarItemStyle: {display: 'none'}
+          href: null
+        }}
+      />
+      <Tabs.Screen
+        name="about"
+        options={{
+          href: null
+        }}
+      />
+      <Tabs.Screen
+        name="hangout/[id]"
+        options={{
+          href: null
         }}
       />
     </Tabs>

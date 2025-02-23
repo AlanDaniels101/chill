@@ -52,15 +52,13 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Groups</Text>
-        <Pressable 
-          style={styles.createButton}
-          onPress={() => setModalVisible(true)}
-        >
-          <Text style={styles.buttonText}>Create New Group</Text>
-        </Pressable>
-      </View>
+      <Text style={styles.title}>Groups</Text>
+      <Pressable 
+        style={styles.createButton}
+        onPress={() => setModalVisible(true)}
+      >
+        <Text style={styles.buttonText}>Create New Group</Text>
+      </Pressable>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.groupList}>
         {groups?.map(group => (
@@ -69,11 +67,6 @@ export default function Index() {
           </View>
         ))}
       </ScrollView>
-
-      <View style={styles.footer}>
-        <Link href="/about" style={styles.button}>Go to About</Link>
-        <Text style={styles.logoutButton} onPress={() => signOut()}>Log out</Text>
-      </View>
 
       <CreateGroupModal 
         visible={modalVisible}
@@ -88,21 +81,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#7dacf9',
-  },
-  header: {
     padding: 16,
     paddingTop: 48,
-    backgroundColor: '#5c8ed6',
-    borderBottomRightRadius: 20,
-    borderBottomLeftRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   title: {
     fontSize: 32,
@@ -110,14 +90,25 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 16,
   },
+  createButton: {
+    backgroundColor: '#4a7abf',
+    padding: 12,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   scrollView: {
     flex: 1,
   },
   groupList: {
-    padding: 16,
+    gap: 16,
   },
   groupItem: {
-    marginBottom: 16,
     backgroundColor: '#fff',
     borderRadius: 16,
     shadowColor: '#000',
@@ -129,34 +120,5 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
     minHeight: 100,
-  },
-  createButton: {
-    backgroundColor: '#4a7abf',
-    padding: 12,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  footer: {
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
-  },
-  button: {
-    fontSize: 16,
-    color: '#fff',
-    textDecorationLine: 'underline',
-  },
-  logoutButton: {
-    fontSize: 16,
-    color: '#fff',
-    opacity: 0.8,
   },
 });
