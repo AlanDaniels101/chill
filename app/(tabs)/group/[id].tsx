@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Text, View, StyleSheet, Pressable, Image } from 'react-native'
-import { Group, Hangout, GroupIcon } from '../../../types'
+import { Group, Hangout, GroupIcon, User } from '../../../types'
 import { useAuth } from '../../../ctx'
 
 import { getDatabase } from '@react-native-firebase/database';
@@ -21,14 +21,16 @@ export default function GroupPage() {
     const [group, setGroup] = useState<Group>()
     const [hangouts, setHangouts] = useState<Hangout[]>()
     const [isEditingIcon, setIsEditingIcon] = useState(false);
+    const [users, setUsers] = useState<{ [key: string]: User }>({});
     
     useEffect(() => {
         setLoadComplete(false)
         navigation.setOptions({ title: `Group ${name}` })
 
         const groupRef = getDatabase().ref(`/groups/${id}`);
+        const usersRef = getDatabase().ref('/users');
 
-        // Set up realtime listener for group data
+        // Set up realtime listener for group and user data
         const onGroupUpdate = async (snapshot: any) => {
             const val = snapshot.val();
             const group = { id, ...val } as Group;
@@ -39,8 +41,23 @@ export default function GroupPage() {
             const hangoutSnapshots = await Promise.all(promises);
             const hangouts = hangoutSnapshots.map(snap => ({id: snap.key, ...snap.val() } as Hangout));
             
+            // Get all users who are members or admins
+            const userIds = new Set([
+                ...Object.keys(group.members || {}),
+                ...Object.keys(group.admins || {})
+            ]);
+            
+            const userPromises = Array.from(userIds).map(uid => 
+                usersRef.child(uid).once('value')
+            );
+            const userSnapshots = await Promise.all(userPromises);
+            const users = Object.fromEntries(
+                userSnapshots.map(snap => [snap.key, { id: snap.key, ...snap.val() }])
+            );
+
             setGroup(group);
             setHangouts(hangouts);
+            setUsers(users);
             setLoadComplete(true);
         };
 
@@ -128,11 +145,53 @@ export default function GroupPage() {
                 </View>
             )}
 
-            <Text style={styles.subtitle}>Hangouts:</Text>
+            <Text style={styles.sectionTitle}>Hangouts</Text>
             <View style={styles.hangoutList}>
                 {hangouts?.map((hangout: Hangout, index) => (
                     <HangoutCard key={index} hangout={hangout} />
                 ))}
+            </View>
+
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Members</Text>
+                <View style={styles.userList}>
+                    <View style={styles.userSection}>
+                        <Text style={styles.userSectionTitle}>Admins</Text>
+                        {group?.admins && Object.keys(group.admins).map(uid => (
+                            <View key={uid} style={styles.userItem}>
+                                <MaterialIcons 
+                                    name="admin-panel-settings" 
+                                    size={20} 
+                                    color="#5c8ed6" 
+                                    style={styles.adminIcon}
+                                />
+                                <Text style={styles.userName}>
+                                    {users[uid]?.name || 'Loading...'}
+                                </Text>
+                            </View>
+                        ))}
+                    </View>
+
+                    <View style={styles.userSection}>
+                        <Text style={styles.userSectionTitle}>Members</Text>
+                        {group?.members && Object.keys(group.members)
+                            .filter(uid => !group.admins?.[uid])
+                            .map(uid => (
+                                <View key={uid} style={styles.userItem}>
+                                    <MaterialIcons 
+                                        name="person" 
+                                        size={20} 
+                                        color="#666" 
+                                        style={styles.memberIcon}
+                                    />
+                                    <Text style={styles.userName}>
+                                        {users[uid]?.name || 'Loading...'}
+                                    </Text>
+                                </View>
+                            ))
+                        }
+                    </View>
+                </View>
             </View>
             
             {isAdmin && (
@@ -207,5 +266,44 @@ const styles = StyleSheet.create({
     },
     cancelButtonText: {
         color: '#666',
+    },
+    section: {
+        marginBottom: 24,
+    },
+    sectionTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 12,
+        color: '#2c3e50',
+    },
+    userList: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        gap: 16,
+    },
+    userSection: {
+        gap: 8,
+    },
+    userSectionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#666',
+        marginBottom: 4,
+    },
+    userItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 4,
+    },
+    adminIcon: {
+        marginRight: 8,
+    },
+    memberIcon: {
+        marginRight: 8,
+    },
+    userName: {
+        fontSize: 16,
+        color: '#2c3e50',
     },
 });

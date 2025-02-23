@@ -10,6 +10,14 @@ export type GroupIcon = {
   value: string;  // icon name for material, URL for image
 };
 
+export type User = {
+    id: string;
+    name: string;
+    groups?: {
+        [groupId: string]: boolean;  // Groups the user belongs to
+    };
+};
+
 export type Group = {
     id: string;
     name: string;
@@ -19,6 +27,9 @@ export type Group = {
     };
     admins: {
         [uid: string]: boolean;
+    };
+    members: {
+        [uid: string]: boolean;  // Users who are members of this group
     };
 };
 
