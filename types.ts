@@ -10,6 +10,9 @@ export type Group = {
     name: string;
     hangouts: {
         [id: string]: boolean;
-    }
+    };
+    admins: {
+        [uid: string]: boolean;
+    };
 };
 
