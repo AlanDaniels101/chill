@@ -1,7 +1,9 @@
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Modal, Pressable, TextInput, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getDatabase } from '@react-native-firebase/database';
-import { useState } from 'react';
+import QRCode from 'react-native-qrcode-svg';
+import QRScanner from './QRScanner';
 
 type Props = {
     visible: boolean;
@@ -11,9 +13,18 @@ type Props = {
 
 export default function AddMemberModal({ visible, groupId, onClose }: Props) {
     const [newMemberUid, setNewMemberUid] = useState('');
+    const [isScanning, setIsScanning] = useState(false);
+
+    // Reset scanning state when modal visibility changes
+    useEffect(() => {
+        if (!visible) {
+            setIsScanning(false);
+        }
+    }, [visible]);
 
     const handleClose = () => {
         setNewMemberUid('');
+        setIsScanning(false);  // Also reset scanning state here
         onClose();
     };
 
@@ -43,6 +54,12 @@ export default function AddMemberModal({ visible, groupId, onClose }: Props) {
         }
     };
 
+    const handleScannedUser = async (userId: string) => {
+        setIsScanning(false);
+        setNewMemberUid(userId);
+        addMember();
+    };
+
     return (
         <Modal
             visible={visible}
@@ -64,13 +81,44 @@ export default function AddMemberModal({ visible, groupId, onClose }: Props) {
                             <MaterialIcons name="close" size={24} color="#666" />
                         </Pressable>
                     </View>
-                    <TextInput
-                        style={styles.input}
-                        value={newMemberUid}
-                        onChangeText={setNewMemberUid}
-                        placeholder="Enter user ID"
-                        autoCapitalize="none"
-                    />
+
+                    <View style={styles.qrContainer}>
+                        <Text style={styles.qrText}>Scan this code to join:</Text>
+                        <QRCode
+                            value={`chill://join-group/${groupId}`}
+                            size={200}
+                        />
+                        <Text style={styles.qrInstructions}>
+                            To join, you need the Chill app installed.{'\n'}
+                            Get it from the App Store or Play Store.
+                        </Text>
+                    </View>
+
+                    <View style={styles.divider} />
+
+                    <Text style={styles.orText}>Or add by user ID:</Text>
+                    {isScanning ? (
+                        <QRScanner 
+                            onScan={handleScannedUser}
+                            onClose={() => setIsScanning(false)}
+                        />
+                    ) : (
+                        <View style={styles.inputContainer}>
+                            <TextInput
+                                style={[styles.input, { flex: 1 }]}
+                                value={newMemberUid}
+                                onChangeText={setNewMemberUid}
+                                placeholder="Enter user ID"
+                                autoCapitalize="none"
+                            />
+                            <Pressable 
+                                style={styles.scanButton}
+                                onPress={() => setIsScanning(true)}
+                            >
+                                <MaterialIcons name="qr-code-scanner" size={24} color="white" />
+                            </Pressable>
+                        </View>
+                    )}
                     <View style={styles.modalButtons}>
                         <Pressable 
                             style={[styles.modalButton, styles.cancelButton]}
@@ -145,5 +193,40 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontWeight: '500',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#ddd',
+        marginVertical: 16,
+    },
+    qrContainer: {
+        alignItems: 'center',
+        gap: 16,
+    },
+    qrText: {
+        fontSize: 14,
+        color: '#666',
+        textAlign: 'center',
+    },
+    qrInstructions: {
+        fontSize: 12,
+        color: '#666',
+        textAlign: 'center',
+        marginTop: 8,
+    },
+    orText: {
+        fontSize: 14,
+        color: '#666',
+        textAlign: 'center',
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    scanButton: {
+        padding: 8,
+        borderRadius: 6,
+        backgroundColor: '#5c8ed6',
     },
 }); 
