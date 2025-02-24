@@ -30,7 +30,8 @@
     "react-native-screens": "~4.4.0",
     "react-native-web": "~0.19.13",
     "react-native-svg": "15.8.0",
-    "expo-camera": "~16.0.17"
+    "expo-camera": "~16.0.17",
+    "expo-clipboard": "~7.0.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

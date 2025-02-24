@@ -1,9 +1,11 @@
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { useAuth } from '../../ctx';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import { getDatabase } from '@react-native-firebase/database';
 import { User } from '../../types';
+import * as Clipboard from 'expo-clipboard';
+import QRCode from 'react-native-qrcode-svg';
 
 export default function ProfilePage() {
     const { userId, signOut } = useAuth();
@@ -28,6 +30,13 @@ export default function ProfilePage() {
         };
     }, [userId]);
 
+    const copyUidToClipboard = async () => {
+        if (userId) {
+            await Clipboard.setStringAsync(userId);
+            Alert.alert('Copied!', 'Your user ID has been copied!');
+        }
+    };
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -37,6 +46,26 @@ export default function ProfilePage() {
                     color="#2c3e50" 
                 />
                 <Text style={styles.name}>{user?.name || 'Loading...'}</Text>
+            </View>
+
+            <View style={styles.uidSection}>
+                <View style={styles.qrContainer}>
+                    <QRCode
+                        value={userId || ''}
+                        size={150}
+                    />
+                    <Text style={styles.qrText}>Scan to add me to a group</Text>
+                </View>
+                <View style={styles.idContainer}>
+                    <Text style={styles.idLabel}>Your User ID:</Text>
+                    <Text style={styles.idText} numberOfLines={1}>{userId}</Text>
+                    <Pressable 
+                        style={styles.copyButton}
+                        onPress={copyUidToClipboard}
+                    >
+                        <MaterialIcons name="content-copy" size={20} color="#5c8ed6" />
+                    </Pressable>
+                </View>
             </View>
 
             <Pressable 
@@ -80,5 +109,37 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    uidSection: {
+        marginBottom: 32,
+        gap: 16,
+    },
+    idContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f5f5f5',
+        padding: 12,
+        borderRadius: 8,
+    },
+    idLabel: {
+        fontSize: 14,
+        color: '#666',
+        marginRight: 8,
+    },
+    idText: {
+        fontSize: 14,
+        color: '#2c3e50',
+        flex: 1,
+    },
+    copyButton: {
+        padding: 4,
+    },
+    qrContainer: {
+        alignItems: 'center',
+        gap: 8,
+    },
+    qrText: {
+        fontSize: 12,
+        color: '#666',
     },
 }); 
