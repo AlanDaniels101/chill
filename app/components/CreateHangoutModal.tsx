@@ -84,6 +84,9 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                 <View style={styles.modalContent}>
                     <View style={styles.modalHeader}>
                         <Text style={styles.modalTitle}>Create Hangout</Text>
+                        <Pressable onPress={onClose}>
+                            <MaterialIcons name="close" size={24} color="#666" />
+                        </Pressable>
                     </View>
 
                     <TextInput

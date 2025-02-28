@@ -1,13 +1,13 @@
 import { Redirect, Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Text } from 'react-native';
 import { useAuth } from '../../ctx';
+import LoadingScreen from '../components/LoadingScreen';
 
 export default function TabLayout() {
   const { userId, isLoading } = useAuth()
 
   if (isLoading) {
-    return <Text>Loading</Text>
+    return <LoadingScreen />;
   }
 
   if (!userId) {
