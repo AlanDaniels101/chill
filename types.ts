@@ -3,6 +3,9 @@ export type Hangout = {
     name: string;
     group: string;
     time: number;
+    attendees?: {
+        [uid: string]: boolean;
+    };
 }
 
 export type GroupIcon = {

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Text, View, StyleSheet } from 'react-native';
+import { Text, View, StyleSheet, Pressable } from 'react-native';
 import { Hangout, Group, User } from '../../../types';
 import { getDatabase } from '@react-native-firebase/database';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -39,7 +39,19 @@ export default function HangoutPage() {
                 setGroup({ id: hangout.group, ...groupData });
             }
 
-            // Get attendees data (if we add this feature later)
+            // Get attendees data
+            if (hangout.attendees) {
+                const attendeeIds = Object.keys(hangout.attendees);
+                const attendeePromises = attendeeIds.map(uid => 
+                    getDatabase().ref(`/users/${uid}`).once('value')
+                );
+                const attendeeSnapshots = await Promise.all(attendeePromises);
+                const attendeeData = Object.fromEntries(
+                    attendeeSnapshots.map(snap => [snap.key, { id: snap.key, ...snap.val() }])
+                );
+                setAttendees(attendeeData);
+            }
+
             setLoadComplete(true);
         };
 
@@ -52,8 +64,8 @@ export default function HangoutPage() {
 
     if (!loadComplete) return null;
 
-    const isAdmin = userId && group?.admins?.[userId];
     const date = new Date(hangout?.time || 0);
+    const isPast = date < new Date();
 
     return (
         <View style={styles.container}>
@@ -82,8 +94,33 @@ export default function HangoutPage() {
                 </View>
             </View>
 
+            <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Attendees</Text>
+                    {!isPast && (
+                        <Pressable 
+                            style={styles.addButton}
+                            onPress={() => {/* Add invite functionality */}}
+                        >
+                            <MaterialIcons name="person-add" size={20} color="#5c8ed6" />
+                            <Text style={styles.addButtonText}>Invite</Text>
+                        </Pressable>
+                    )}
+                </View>
+                <View style={styles.attendeeList}>
+                    {Object.values(attendees).map(user => (
+                        <View key={user.id} style={styles.attendeeItem}>
+                            <MaterialIcons name="person" size={20} color="#666" style={styles.attendeeIcon} />
+                            <Text style={styles.attendeeName}>{user.name}</Text>
+                        </View>
+                    ))}
+                    {Object.keys(attendees).length === 0 && (
+                        <Text style={styles.emptyText}>No attendees yet</Text>
+                    )}
+                </View>
+            </View>
+
             {/* We can add more features here like:
-                - Attendee list
                 - RSVP functionality
                 - Location details
                 - Description/notes
@@ -124,5 +161,56 @@ const styles = StyleSheet.create({
     infoText: {
         fontSize: 16,
         color: '#2c3e50',
+    },
+    section: {
+        marginTop: 24,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+    },
+    sectionTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#2c3e50',
+    },
+    addButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        backgroundColor: '#f0f0f0',
+        borderRadius: 8,
+    },
+    addButtonText: {
+        color: '#5c8ed6',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    attendeeList: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 12,
+    },
+    attendeeItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 8,
+    },
+    attendeeIcon: {
+        marginRight: 12,
+    },
+    attendeeName: {
+        fontSize: 16,
+        color: '#2c3e50',
+    },
+    emptyText: {
+        color: '#666',
+        textAlign: 'center',
+        padding: 16,
     },
 });
