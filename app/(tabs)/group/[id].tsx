@@ -6,7 +6,7 @@ import { useAuth } from '../../../ctx'
 
 import { getDatabase } from '@react-native-firebase/database';
 import React from 'react';
-import HangoutCard from '../../components/handoutCard';
+import HangoutCard from '../../components/hangoutCard';
 import IconSelector from '../../components/IconSelector';
 import { MaterialIcons } from '@expo/vector-icons';
 import AddMemberModal from '../../components/AddMemberModal';
@@ -210,8 +210,8 @@ export default function GroupPage() {
 
             <Text style={styles.sectionTitle}>Hangouts</Text>
             <View style={styles.hangoutList}>
-                {hangouts?.map((hangout: Hangout, index) => (
-                    <HangoutCard key={index} hangout={hangout} />
+                {hangouts?.map((hangout: Hangout) => (
+                    <HangoutCard key={hangout.id} hangout={hangout} />
                 ))}
             </View>
 
@@ -325,6 +325,7 @@ const styles = StyleSheet.create({
     },
     hangoutList: {
         marginTop: 8,
+        marginBottom: 16,
     },
     deleteButton: {
         backgroundColor: '#ff4444',
