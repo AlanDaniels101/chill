@@ -1,4 +1,4 @@
-import { View, Text, Modal, TextInput, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, Modal, TextInput, Pressable, StyleSheet, Platform, Alert } from 'react-native';
 import { useState } from 'react';
 import { getDatabase } from '@react-native-firebase/database';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -20,21 +20,40 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
     const [minAttendees, setMinAttendees] = useState(2);
     const [maxAttendees, setMaxAttendees] = useState(8);
     const [showTooltip, setShowTooltip] = useState(false);
+    const [location, setLocation] = useState('');
 
     const handleCreate = async () => {
         const hangoutRef = getDatabase().ref('/hangouts').push();
-        await hangoutRef.set({
-            name,
-            time: date.getTime(),
-            group: groupId,
-            createdAnonymously,
-            minAttendees,
-            maxAttendees,
-        });
-        setName('');
-        setDate(new Date());
-        setCreatedAnonymously(true);
-        onClose();
+        const hangoutId = hangoutRef.key;
+        
+        try {
+            // Create the hangout
+            await hangoutRef.set({
+                id: hangoutId,
+                name,
+                time: date.getTime(),
+                group: groupId,
+                createdAnonymously,
+                minAttendees,
+                maxAttendees,
+                location: location.trim(),
+            });
+
+            // Add the hangout to the group's hangouts list
+            await getDatabase()
+                .ref(`/groups/${groupId}/hangouts/${hangoutId}`)
+                .set(true);
+
+            // Reset form
+            setName('');
+            setDate(new Date());
+            setCreatedAnonymously(true);
+            setLocation('');
+            onClose();
+        } catch (error) {
+            console.error('Error creating hangout:', error);
+            Alert.alert('Error', 'Failed to create hangout');
+        }
     };
 
     const onChange = (event: any, selectedDate?: Date) => {
@@ -95,6 +114,16 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                             onChange={onChange}
                         />
                     )}
+
+                    <View style={styles.locationContainer}>
+                        <MaterialIcons name="location-on" size={20} color="#666" style={styles.locationIcon} />
+                        <TextInput
+                            style={[styles.input, styles.locationInput]}
+                            placeholder="Add location"
+                            value={location}
+                            onChangeText={setLocation}
+                        />
+                    </View>
 
                     <View style={styles.attendeeSection}>
                         <Text style={styles.sectionLabel}>Attendees</Text>
@@ -361,5 +390,17 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         padding: 0,
         height: 24,
+    },
+    locationContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    locationIcon: {
+        marginLeft: 4,
+    },
+    locationInput: {
+        flex: 1,
+        marginLeft: 0,
     },
 }); 
