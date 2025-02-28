@@ -10,6 +10,7 @@ import HangoutCard from '../../components/hangoutCard';
 import IconSelector from '../../components/IconSelector';
 import { MaterialIcons } from '@expo/vector-icons';
 import AddMemberModal from '../../components/AddMemberModal';
+import CreateHangoutModal from '../../components/CreateHangoutModal';
 
 export default function GroupPage() {
     const navigation = useNavigation()
@@ -25,6 +26,7 @@ export default function GroupPage() {
     const [users, setUsers] = useState<{ [key: string]: User }>({});
     const [isAddingMember, setIsAddingMember] = useState(false);
     const [newMemberUid, setNewMemberUid] = useState('');
+    const [isCreatingHangout, setIsCreatingHangout] = useState(false);
     
     useEffect(() => {
         setLoadComplete(false)
@@ -208,6 +210,14 @@ export default function GroupPage() {
                 </View>
             )}
 
+            <Pressable 
+                style={styles.createEventButton}
+                onPress={() => setIsCreatingHangout(true)}
+            >
+                <MaterialIcons name="add-circle" size={24} color="#fff" />
+                <Text style={styles.createEventText}>New Hangout!</Text>
+            </Pressable>
+
             <Text style={styles.sectionTitle}>Hangouts</Text>
             <View style={styles.hangoutList}>
                 {hangouts?.map((hangout: Hangout) => (
@@ -305,6 +315,12 @@ export default function GroupPage() {
                 visible={isAddingMember}
                 groupId={group?.id || ''}
                 onClose={() => setIsAddingMember(false)}
+            />
+
+            <CreateHangoutModal
+                visible={isCreatingHangout}
+                onClose={() => setIsCreatingHangout(false)}
+                groupId={id as string}
             />
         </View>
     )
@@ -501,5 +517,28 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontWeight: '500',
+    },
+    createEventButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#5c8ed6',
+        borderRadius: 12,
+        marginBottom: 24,
+        padding: 16,
+        gap: 8,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    createEventText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
     },
 });
