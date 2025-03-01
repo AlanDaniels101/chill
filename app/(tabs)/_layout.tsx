@@ -29,7 +29,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="(groups)"
         options={{
           title: 'Groups',
           tabBarIcon: ({ color, focused }) => (
@@ -47,19 +47,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="group/[id]"
-        options={{
-          href: null
-        }}
-      />
-      <Tabs.Screen
         name="about"
-        options={{
-          href: null
-        }}
-      />
-      <Tabs.Screen
-        name="hangout/[id]"
         options={{
           href: null
         }}

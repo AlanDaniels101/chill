@@ -20,7 +20,10 @@ export default function HangoutCard({ hangout }: Props) {
                 isPast && styles.pastContainer
             ]}
             onPress={() => {
-                router.push(`/hangout/${hangout.id}?name=${hangout.name}`);
+                router.push({
+                    pathname: "/(tabs)/(groups)/hangout/[id]",
+                    params: { id: hangout.id, name: hangout.name }
+                });
             }}
         >
             <MaterialIcons 

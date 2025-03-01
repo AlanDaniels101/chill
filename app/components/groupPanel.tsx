@@ -13,7 +13,7 @@ const GroupPanel: React.FC<GroupPanelProps> = ({group}) => {
     const icon = group.icon || defaultIcon;
 
     return (
-        <Link href={`/group/${group.id}?name=${group.name}`} asChild>
+        <Link href={`/(tabs)/(groups)/group/${group.id}?name=${group.name}`} asChild>
             <Pressable style={styles.container}>
                 {icon.type === 'material' ? (
                     <MaterialIcons 

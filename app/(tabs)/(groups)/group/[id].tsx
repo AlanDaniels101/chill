@@ -1,16 +1,16 @@
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Text, View, StyleSheet, Pressable, Image, Modal, TextInput, Alert } from 'react-native'
-import { Group, Hangout, GroupIcon, User } from '../../../types'
-import { useAuth } from '../../../ctx'
+import { Group, Hangout, GroupIcon, User } from '../../../../types'
+import { useAuth } from '../../../../ctx'
 
 import { getDatabase } from '@react-native-firebase/database';
 import React from 'react';
-import HangoutCard from '../../components/hangoutCard';
-import IconSelector from '../../components/IconSelector';
+import HangoutCard from '../../../components/hangoutCard';
+import IconSelector from '../../../components/IconSelector';
 import { MaterialIcons } from '@expo/vector-icons';
-import AddMemberModal from '../../components/AddMemberModal';
-import CreateHangoutModal from '../../components/CreateHangoutModal';
+import AddMemberModal from '../../../components/AddMemberModal';
+import CreateHangoutModal from '../../../components/CreateHangoutModal';
 
 export default function GroupPage() {
     const navigation = useNavigation()

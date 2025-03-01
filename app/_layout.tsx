@@ -6,14 +6,18 @@ export default function RootLayout() {
     <AuthProvider>
       <Stack
         screenOptions={{
-          headerShown: false,
+          headerStyle: {
+            backgroundColor: '#7dacf9',
+          },
+          headerTintColor: '#fff',
+          headerShadowVisible: false,
           gestureEnabled: true,
           gestureDirection: 'horizontal',
           animation: 'slide_from_right',
           presentation: 'card'
         }}
       >
-        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
     </AuthProvider>

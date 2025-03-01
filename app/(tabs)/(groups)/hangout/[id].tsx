@@ -1,10 +1,11 @@
+import React from 'react';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Text, View, StyleSheet, Pressable } from 'react-native';
-import { Hangout, Group, User } from '../../../types';
+import { Text, View, StyleSheet, Pressable, Button } from 'react-native';
+import { Hangout, Group, User } from '../../../../types';
 import { getDatabase } from '@react-native-firebase/database';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useAuth } from '../../../ctx';
+import { useAuth } from '../../../../ctx';
 
 export default function HangoutPage() {
     const navigation = useNavigation();
@@ -19,7 +20,10 @@ export default function HangoutPage() {
 
     useEffect(() => {
         setLoadComplete(false);
-        navigation.setOptions({ title: `Hangout: ${name}` });
+        navigation.setOptions({
+            title: `Hangout: ${name}`,
+            headerBackTitle: "Back to Group"
+        });
 
         const hangoutRef = getDatabase().ref(`/hangouts/${id}`);
         
@@ -60,7 +64,7 @@ export default function HangoutPage() {
         return () => {
             hangoutRef.off('value', onHangoutUpdate);
         };
-    }, [navigation, id, name]);
+    }, [id, name]);
 
     if (!loadComplete) return null;
 
@@ -119,13 +123,6 @@ export default function HangoutPage() {
                     )}
                 </View>
             </View>
-
-            {/* We can add more features here like:
-                - RSVP functionality
-                - Location details
-                - Description/notes
-                - Comments/chat
-            */}
         </View>
     );
 }
@@ -213,4 +210,4 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         padding: 16,
     },
-});
+}); 

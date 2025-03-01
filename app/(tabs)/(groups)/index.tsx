@@ -1,16 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, Pressable, ScrollView } from 'react-native';
-import { Link } from 'expo-router'
-
-import { useAuth } from '../../ctx';
 
 import { getDatabase } from '@react-native-firebase/database';
 import { useEffect, useState } from 'react';
 
-import { Group } from '../../types'
+import { Group } from '../../../types'
 
-import GroupPanel from '../components/groupPanel'
-import CreateGroupModal from '../components/CreateGroupModal';
+import GroupPanel from '../../components/groupPanel'
+import CreateGroupModal from '../../components/CreateGroupModal';
 
 type FirebaseGroups = {
   [key: string]: FirebaseGroup;
@@ -19,7 +16,6 @@ type FirebaseGroups = {
 type FirebaseGroup = Omit<Group, 'id'>
 
 export default function Index() {
-  const { signOut } = useAuth();
   const [groups, setGroups] = useState<Group[]>()
   const [modalVisible, setModalVisible] = useState(false);
 
