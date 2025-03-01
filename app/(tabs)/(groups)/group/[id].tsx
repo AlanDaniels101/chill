@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
-import { useEffect, useState } from 'react'
-import { Text, View, StyleSheet, Pressable, Image, Modal, TextInput, Alert } from 'react-native'
+import { useEffect, useState, useMemo } from 'react'
+import { Text, View, StyleSheet, Pressable, Image, Alert, ScrollView } from 'react-native'
 import { Group, Hangout, GroupIcon, User } from '../../../../types'
 import { useAuth } from '../../../../ctx'
 
@@ -11,6 +11,26 @@ import IconSelector from '../../../components/IconSelector';
 import { MaterialIcons } from '@expo/vector-icons';
 import AddMemberModal from '../../../components/AddMemberModal';
 import CreateHangoutModal from '../../../components/CreateHangoutModal';
+
+function sortHangouts(hangouts: Hangout[]) {
+    const now = new Date().getTime();
+    return [...hangouts].sort((a, b) => {
+        const aTime = a.time;
+        const bTime = b.time;
+        const aIsFuture = aTime > now;
+        const bIsFuture = bTime > now;
+
+        // If both are future events or both are past events, sort by closest to now
+        if (aIsFuture === bIsFuture) {
+            return aIsFuture 
+                ? aTime - bTime  // Future events: ascending order
+                : bTime - aTime; // Past events: descending order
+        }
+        
+        // If one is future and one is past, future comes first
+        return aIsFuture ? -1 : 1;
+    });
+}
 
 export default function GroupPage() {
     const navigation = useNavigation()
@@ -28,6 +48,9 @@ export default function GroupPage() {
     const [newMemberUid, setNewMemberUid] = useState('');
     const [isCreatingHangout, setIsCreatingHangout] = useState(false);
     
+    const sortedHangouts = useMemo(() => sortHangouts(hangouts || []), [hangouts]);
+    const isAdmin = userId && group?.admins?.[userId];
+
     useEffect(() => {
         setLoadComplete(false)
         navigation.setOptions({ title: `Group ${name}` })
@@ -161,8 +184,6 @@ export default function GroupPage() {
 
     if (!loadComplete) return null
 
-    const isAdmin = userId && group?.admins?.[userId];
-    
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -219,10 +240,12 @@ export default function GroupPage() {
             </Pressable>
 
             <Text style={styles.sectionTitle}>Hangouts</Text>
-            <View style={styles.hangoutList}>
-                {hangouts?.map((hangout: Hangout) => (
-                    <HangoutCard key={hangout.id} hangout={hangout} />
-                ))}
+            <View style={styles.hangoutListContainer}>
+                <ScrollView style={styles.hangoutList}>
+                    {sortedHangouts.map((hangout: Hangout) => (
+                        <HangoutCard key={hangout.id} hangout={hangout} />
+                    ))}
+                </ScrollView>
             </View>
 
             <View style={styles.section}>
@@ -328,6 +351,7 @@ export default function GroupPage() {
 
 const styles = StyleSheet.create({
     container: {
+        flex: 1,
         padding: 16,
     },
     title: {
@@ -339,9 +363,16 @@ const styles = StyleSheet.create({
         fontSize: 18,
         marginBottom: 16,
     },
-    hangoutList: {
+    hangoutListContainer: {
+        height: 280,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 12,
+        padding: 8,
         marginTop: 8,
         marginBottom: 16,
+    },
+    hangoutList: {
+        flex: 1,
     },
     deleteButton: {
         backgroundColor: '#ff4444',
