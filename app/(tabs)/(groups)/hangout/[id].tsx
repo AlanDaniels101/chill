@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Text, View, StyleSheet, Pressable, Button } from 'react-native';
+import { Text, View, StyleSheet, Pressable, Button, Alert } from 'react-native';
 import { Hangout, Group, User } from '../../../../types';
 import { getDatabase } from '@react-native-firebase/database';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -17,6 +17,32 @@ export default function HangoutPage() {
     const [hangout, setHangout] = useState<Hangout>();
     const [group, setGroup] = useState<Group>();
     const [attendees, setAttendees] = useState<{ [key: string]: User }>({});
+
+    const handleDecline = async () => {
+        if (!hangout) return;
+        
+        Alert.alert(
+            "Decline Event",
+            "Are you sure you don't want to attend this event?",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel"
+                },
+                {
+                    text: "Decline",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await getDatabase().ref(`/hangouts/${id}/attendees/${userId}`).remove();
+                        } catch (error) {
+                            Alert.alert("Error", "Failed to decline the event. Please try again.");
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     useEffect(() => {
         setLoadComplete(false);
@@ -119,14 +145,49 @@ export default function HangoutPage() {
                     )}
                 </View>
                 <View style={styles.attendeeList}>
-                    {Object.values(attendees).map(user => (
-                        <View key={user.id} style={styles.attendeeItem}>
-                            <MaterialIcons name="person" size={20} color="#666" style={styles.attendeeIcon} />
-                            <Text style={styles.attendeeName}>{user.name}</Text>
-                        </View>
-                    ))}
-                    {Object.keys(attendees).length === 0 && (
-                        <Text style={styles.emptyText}>No attendees yet</Text>
+                    {hangout?.createdAnonymously && Object.keys(attendees).length < (hangout.minAttendees || 2) ? (
+                        <>
+                            {attendees[userId] && (
+                                <View style={styles.attendeeItem}>
+                                    <MaterialIcons name="person" size={20} color="#666" style={styles.attendeeIcon} />
+                                    <Text style={styles.attendeeName}>You</Text>
+                                    {!isPast && (
+                                        <Pressable 
+                                            style={styles.declineButton}
+                                            onPress={handleDecline}
+                                        >
+                                            <MaterialIcons name="close" size={20} color="#e74c3c" />
+                                        </Pressable>
+                                    )}
+                                </View>
+                            )}
+                            <View style={styles.anonymousMessage}>
+                                <MaterialIcons name="visibility-off" size={20} color="#666" />
+                                <Text style={styles.emptyText}>
+                                    Visible once {(hangout.minAttendees || 2) - Object.keys(attendees).length === 1 ? '1 more person joins' : `${(hangout.minAttendees || 2) - Object.keys(attendees).length} more people join`}
+                                </Text>
+                            </View>
+                        </>
+                    ) : (
+                        <>
+                            {Object.values(attendees).map(user => (
+                                <View key={user.id} style={styles.attendeeItem}>
+                                    <MaterialIcons name="person" size={20} color="#666" style={styles.attendeeIcon} />
+                                    <Text style={styles.attendeeName}>{user.id === userId ? 'You' : user.name}</Text>
+                                    {user.id === userId && !isPast && (
+                                        <Pressable 
+                                            style={styles.declineButton}
+                                            onPress={handleDecline}
+                                        >
+                                            <MaterialIcons name="close" size={20} color="#e74c3c" />
+                                        </Pressable>
+                                    )}
+                                </View>
+                            ))}
+                            {Object.keys(attendees).length === 0 && (
+                                <Text style={styles.emptyText}>No attendees yet</Text>
+                            )}
+                        </>
                     )}
                 </View>
             </View>
@@ -211,10 +272,22 @@ const styles = StyleSheet.create({
     attendeeName: {
         fontSize: 16,
         color: '#2c3e50',
+        flex: 1,
     },
     emptyText: {
         color: '#666',
         textAlign: 'center',
         padding: 16,
+    },
+    anonymousMessage: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        padding: 16,
+    },
+    declineButton: {
+        padding: 4,
+        marginLeft: 8,
     },
 }); 
