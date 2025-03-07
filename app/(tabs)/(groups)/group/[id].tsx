@@ -187,199 +187,205 @@ export default function GroupPage() {
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                {group?.icon?.type === 'material' ? (
-                    <MaterialIcons 
-                        name={group.icon.value as any} 
-                        size={40} 
-                        color="#2c3e50" 
-                    />
-                ) : group?.icon?.type === 'image' ? (
-                    <Image 
-                        source={{ uri: group.icon.value }}
-                        style={styles.headerIcon}
-                    />
-                ) : (
-                    <MaterialIcons 
-                        name="groups" 
-                        size={40} 
-                        color="#2c3e50" 
-                    />
-                )}
-                <View style={styles.headerTextContainer}>
-                    <Text style={styles.title}>{group?.name || name}</Text>
-                </View>
-                {isAdmin && !isEditingIcon && (
-                    <Pressable 
-                        style={styles.editButton}
-                        onPress={() => setIsEditingIcon(true)}
-                    >
-                        <Text style={styles.editButtonText}>Edit</Text>
-                    </Pressable>
-                )}
-            </View>
-
-            {isAdmin && isEditingIcon && (
-                <View style={styles.iconSelector}>
-                    <Text style={styles.editLabel}>Group Name</Text>
-                    <TextInput
-                        style={styles.editInput}
-                        value={group?.name || ''}
-                        onChangeText={(text) => {
-                            if (group) {
-                                setGroup({ ...group, name: text });
-                            }
-                        }}
-                        placeholder="Enter group name"
-                    />
-                    <Text style={styles.editLabel}>Group Icon</Text>
-                    <IconSelector
-                        selectedIcon={group?.icon || { type: 'material', value: 'groups' }}
-                        onSelect={handleUpdateIcon}
-                    />
-                    <View style={styles.editActions}>
-                        <Pressable 
-                            style={styles.cancelButton}
-                            onPress={() => {
-                                setIsEditingIcon(false);
-                                // Reset group name if cancelled
-                                if (group) {
-                                    setGroup({ ...group, name: name as string });
-                                }
-                            }}
-                        >
-                            <Text style={styles.cancelButtonText}>Cancel</Text>
-                        </Pressable>
-                        <Pressable 
-                            style={styles.saveButton}
-                            onPress={async () => {
-                                if (!group?.id) return;
-                                try {
-                                    await getDatabase()
-                                        .ref(`/groups/${group.id}`)
-                                        .update({ 
-                                            icon: group.icon,
-                                            name: group.name
-                                        });
-                                    // Update the navigation title
-                                    navigation.setOptions({ title: group.name });
-                                    setIsEditingIcon(false);
-                                } catch (error) {
-                                    console.error('Error updating group:', error);
-                                    Alert.alert('Error', 'Failed to update group');
-                                }
-                            }}
-                        >
-                            <Text style={styles.saveButtonText}>Save</Text>
-                        </Pressable>
+            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+                <View style={styles.header}>
+                    {group?.icon?.type === 'material' ? (
+                        <MaterialIcons 
+                            name={group.icon.value as any} 
+                            size={40} 
+                            color="#2c3e50" 
+                        />
+                    ) : group?.icon?.type === 'image' ? (
+                        <Image 
+                            source={{ uri: group.icon.value }}
+                            style={styles.headerIcon}
+                        />
+                    ) : (
+                        <MaterialIcons 
+                            name="groups" 
+                            size={40} 
+                            color="#2c3e50" 
+                        />
+                    )}
+                    <View style={styles.headerTextContainer}>
+                        <Text style={styles.title}>{group?.name || name}</Text>
                     </View>
-                </View>
-            )}
-
-            <NotificationToggle groupId={id as string} />
-
-            <Pressable 
-                style={styles.createEventButton}
-                onPress={() => setIsCreatingHangout(true)}
-            >
-                <MaterialIcons name="add-circle" size={24} color="#fff" />
-                <Text style={styles.createEventText}>New Hangout!</Text>
-            </Pressable>
-
-            <Text style={styles.sectionTitle}>Hangouts</Text>
-            <View style={styles.hangoutListContainer}>
-                <ScrollView style={styles.hangoutList}>
-                    {sortedHangouts.map((hangout: Hangout) => (
-                        <HangoutCard key={hangout.id} hangout={hangout} />
-                    ))}
-                </ScrollView>
-            </View>
-
-            <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Members</Text>
-                    {isAdmin && (
+                    {isAdmin && !isEditingIcon && (
                         <Pressable 
-                            style={styles.addButton}
-                            onPress={() => setIsAddingMember(true)}
+                            style={styles.editButton}
+                            onPress={() => setIsEditingIcon(true)}
                         >
-                            <MaterialIcons name="person-add" size={20} color="#5c8ed6" />
-                            <Text style={styles.addButtonText}>Add Member</Text>
+                            <Text style={styles.editButtonText}>Edit</Text>
                         </Pressable>
                     )}
                 </View>
-                <View style={styles.userList}>
-                    <View style={styles.userSection}>
-                        <Text style={styles.userSectionTitle}>Admins</Text>
-                        {group?.admins && Object.keys(group.admins).map(uid => (
-                            <View key={uid} style={styles.userItem}>
-                                <MaterialIcons 
-                                    name="admin-panel-settings" 
-                                    size={20} 
-                                    color="#5c8ed6" 
-                                    style={styles.adminIcon}
-                                />
-                                <Text style={styles.userName}>
-                                    {users[uid]?.name || 'Loading...'}
-                                </Text>
-                                {isAdmin && uid !== userId && (
-                                    <Pressable 
-                                        style={styles.adminToggle}
-                                        onPress={() => toggleUserAdmin(uid, true)}
-                                    >
-                                        <Text style={styles.adminToggleText}>Make Member</Text>
-                                    </Pressable>
-                                )}
-                            </View>
-                        ))}
-                    </View>
 
-                    <View style={styles.userSection}>
-                        <Text style={styles.userSectionTitle}>Members</Text>
-                        {group?.members && Object.keys(group.members)
-                            .filter(uid => !group.admins?.[uid])
-                            .map(uid => (
-                                <View key={uid} style={styles.userItem}>
-                                    <MaterialIcons 
-                                        name="person" 
-                                        size={20} 
-                                        color="#666" 
-                                        style={styles.memberIcon}
-                                    />
-                                    <Text style={styles.userName}>
-                                        {users[uid]?.name || 'Loading...'}
-                                    </Text>
-                                    {isAdmin && (
-                                        <View style={styles.actionButtons}>
+                <Pressable 
+                    style={styles.createEventButton}
+                    onPress={() => setIsCreatingHangout(true)}
+                >
+                    <MaterialIcons name="add-circle" size={24} color="#fff" />
+                    <Text style={styles.createEventText}>New Hangout!</Text>
+                </Pressable>
+
+                {isAdmin && isEditingIcon && (
+                    <View style={styles.iconSelector}>
+                        <Text style={styles.editLabel}>Group Name</Text>
+                        <TextInput
+                            style={styles.editInput}
+                            value={group?.name || ''}
+                            onChangeText={(text) => {
+                                if (group) {
+                                    setGroup({ ...group, name: text });
+                                }
+                            }}
+                            placeholder="Enter group name"
+                        />
+                        <Text style={styles.editLabel}>Group Icon</Text>
+                        <IconSelector
+                            selectedIcon={group?.icon || { type: 'material', value: 'groups' }}
+                            onSelect={handleUpdateIcon}
+                        />
+                        <View style={styles.editActions}>
+                            <Pressable 
+                                style={styles.cancelButton}
+                                onPress={() => {
+                                    setIsEditingIcon(false);
+                                    // Reset group name if cancelled
+                                    if (group) {
+                                        setGroup({ ...group, name: name as string });
+                                    }
+                                }}
+                            >
+                                <Text style={styles.cancelButtonText}>Cancel</Text>
+                            </Pressable>
+                            <Pressable 
+                                style={styles.saveButton}
+                                onPress={async () => {
+                                    if (!group?.id) return;
+                                    try {
+                                        await getDatabase()
+                                            .ref(`/groups/${group.id}`)
+                                            .update({ 
+                                                icon: group.icon,
+                                                name: group.name
+                                            });
+                                        // Update the navigation title
+                                        navigation.setOptions({ title: group.name });
+                                        setIsEditingIcon(false);
+                                    } catch (error) {
+                                        console.error('Error updating group:', error);
+                                        Alert.alert('Error', 'Failed to update group');
+                                    }
+                                }}
+                            >
+                                <Text style={styles.saveButtonText}>Save</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                )}
+
+                <NotificationToggle groupId={id as string} />
+
+                <Text style={styles.sectionTitle}>Hangouts</Text>
+                <View style={styles.hangoutListContainer}>
+                    <ScrollView style={styles.hangoutList} nestedScrollEnabled={true}>
+                        {sortedHangouts.map((hangout: Hangout) => (
+                            <HangoutCard key={hangout.id} hangout={hangout} />
+                        ))}
+                    </ScrollView>
+                </View>
+
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Members</Text>
+                        {isAdmin && (
+                            <Pressable 
+                                style={styles.addButton}
+                                onPress={() => setIsAddingMember(true)}
+                            >
+                                <MaterialIcons name="person-add" size={20} color="#5c8ed6" />
+                                <Text style={styles.addButtonText}>Add Member</Text>
+                            </Pressable>
+                        )}
+                    </View>
+                    <View style={styles.userList}>
+                        <View style={styles.userSection}>
+                            <Text style={styles.userSectionTitle}>Admins</Text>
+                            <ScrollView style={styles.memberList} nestedScrollEnabled={true}>
+                                {group?.admins && Object.keys(group.admins).map(uid => (
+                                    <View key={uid} style={styles.userItem}>
+                                        <MaterialIcons 
+                                            name="admin-panel-settings" 
+                                            size={20} 
+                                            color="#5c8ed6" 
+                                            style={styles.adminIcon}
+                                        />
+                                        <Text style={styles.userName}>
+                                            {users[uid]?.name || 'Loading...'}
+                                        </Text>
+                                        {isAdmin && uid !== userId && (
                                             <Pressable 
                                                 style={styles.adminToggle}
-                                                onPress={() => toggleUserAdmin(uid, false)}
+                                                onPress={() => toggleUserAdmin(uid, true)}
                                             >
-                                                <Text style={styles.adminToggleText}>Make Admin</Text>
+                                                <Text style={styles.adminToggleText}>Make Member</Text>
                                             </Pressable>
-                                            <Pressable 
-                                                style={styles.removeButton}
-                                                onPress={() => removeMember(uid)}
-                                            >
-                                                <MaterialIcons name="remove-circle-outline" size={20} color="#ff4444" />
-                                            </Pressable>
+                                        )}
+                                    </View>
+                                ))}
+                            </ScrollView>
+                        </View>
+
+                        <View style={styles.userSection}>
+                            <Text style={styles.userSectionTitle}>Members</Text>
+                            <ScrollView style={styles.memberList} nestedScrollEnabled={true}>
+                                {group?.members && Object.keys(group.members)
+                                    .filter(uid => !group.admins?.[uid])
+                                    .map(uid => (
+                                        <View key={uid} style={styles.userItem}>
+                                            <MaterialIcons 
+                                                name="person" 
+                                                size={20} 
+                                                color="#666" 
+                                                style={styles.memberIcon}
+                                            />
+                                            <Text style={styles.userName}>
+                                                {users[uid]?.name || 'Loading...'}
+                                            </Text>
+                                            {isAdmin && (
+                                                <View style={styles.actionButtons}>
+                                                    <Pressable 
+                                                        style={styles.adminToggle}
+                                                        onPress={() => toggleUserAdmin(uid, false)}
+                                                    >
+                                                        <Text style={styles.adminToggleText}>Make Admin</Text>
+                                                    </Pressable>
+                                                    <Pressable 
+                                                        style={styles.removeButton}
+                                                        onPress={() => removeMember(uid)}
+                                                    >
+                                                        <MaterialIcons name="remove-circle-outline" size={20} color="#ff4444" />
+                                                    </Pressable>
+                                                </View>
+                                            )}
                                         </View>
-                                    )}
-                                </View>
-                            ))
-                        }
+                                    ))
+                                }
+                            </ScrollView>
+                        </View>
                     </View>
                 </View>
-            </View>
-            
-            {isAdmin && (
-                <Pressable 
-                    style={styles.deleteButton}
-                    onPress={handleDeleteGroup}
-                >
-                    <Text style={styles.deleteButtonText}>Delete Group</Text>
-                </Pressable>
-            )}
+                
+                {isAdmin && (
+                    <Pressable 
+                        style={styles.deleteButton}
+                        onPress={handleDeleteGroup}
+                    >
+                        <Text style={styles.deleteButtonText}>Delete Group</Text>
+                    </Pressable>
+                )}
+            </ScrollView>
 
             <AddMemberModal 
                 visible={isAddingMember}
@@ -399,6 +405,11 @@ export default function GroupPage() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
         padding: 16,
     },
     title: {
@@ -411,12 +422,12 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     hangoutListContainer: {
-        height: 280,
         backgroundColor: '#f5f5f5',
         borderRadius: 12,
         padding: 8,
         marginTop: 8,
         marginBottom: 16,
+        height: 300, // Fixed height for the container
     },
     hangoutList: {
         flex: 1,
@@ -646,7 +657,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: '#5c8ed6',
         borderRadius: 12,
-        marginBottom: 24,
+        margin: 16,
         padding: 16,
         gap: 8,
         shadowColor: '#000',
@@ -662,5 +673,8 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 18,
         fontWeight: '600',
+    },
+    memberList: {
+        maxHeight: 200, // Fixed height for each member list
     },
 });
