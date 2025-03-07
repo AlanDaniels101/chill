@@ -6,6 +6,11 @@ export type Hangout = {
     attendees?: {
         [uid: string]: boolean;
     };
+    minAttendees?: number;
+    maxAttendees?: number;
+    createdBy?: string;
+    createdAnonymously?: boolean;
+    location?: string;
 }
 
 export type GroupIcon = {

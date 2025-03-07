@@ -12,12 +12,16 @@ export default function HangoutCard({ hangout }: Props) {
     const router = useRouter();
     const date = new Date(hangout.time);
     const isPast = date < new Date();
+    
+    const currentAttendees = Object.keys(hangout.attendees || {}).length;
+    const needsMoreAttendees = currentAttendees < (hangout.minAttendees || 2);
 
     return (
         <Pressable 
             style={[
                 styles.container, 
-                isPast && styles.pastContainer
+                isPast && styles.pastContainer,
+                !isPast && needsMoreAttendees && styles.tentativeContainer
             ]}
             onPress={() => {
                 router.push({
@@ -26,10 +30,15 @@ export default function HangoutCard({ hangout }: Props) {
                 });
             }}
         >
+            {!isPast && needsMoreAttendees && (
+                <View style={styles.tentativeBadge}>
+                    <Text style={styles.tentativeText}>Needs {(hangout.minAttendees || 2) - currentAttendees} More</Text>
+                </View>
+            )}
             <MaterialIcons 
-                name="event" 
+                name={isPast ? "event" : "auto-awesome"} 
                 size={24} 
-                color={isPast ? '#777' : '#666'}
+                color={isPast ? '#777' : '#ffa726'}
                 style={styles.icon} 
             />
             <View style={styles.info}>
@@ -60,7 +69,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderRadius: 16,
         marginBottom: 12,
-        shadowColor: '#000',
         shadowOffset: {
             width: 0,
             height: 3,
@@ -68,10 +76,33 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.15,
         shadowRadius: 8,
         elevation: 6,
+        shadowColor: '#000',
     },
     pastContainer: {
         backgroundColor: '#d0d0d0',
         opacity: 0.9,
+        shadowColor: '#666',
+    },
+    tentativeContainer: {
+        backgroundColor: '#fff3e0',
+        borderWidth: 2,
+        borderColor: '#ff9800',
+        shadowColor: '#ff9800',
+    },
+    tentativeBadge: {
+        position: 'absolute',
+        top: 4,
+        right: 6,
+        backgroundColor: '#ff9800',
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    tentativeText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
     },
     icon: {
         marginRight: 16,

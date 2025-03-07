@@ -4,6 +4,7 @@ import { getDatabase } from '@react-native-firebase/database';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useAuth } from '../../ctx';
 
 type Props = {
     visible: boolean;
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export default function CreateHangoutModal({ visible, onClose, groupId }: Props) {
+    const { userId } = useAuth();
     const [name, setName] = useState('');
     const [date, setDate] = useState(new Date());
     const [showPicker, setShowPicker] = useState(false);
@@ -23,11 +25,13 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
     const [location, setLocation] = useState('');
 
     const handleCreate = async () => {
+        if (!userId) return;
+        
         const hangoutRef = getDatabase().ref('/hangouts').push();
         const hangoutId = hangoutRef.key;
         
         try {
-            // Create the hangout
+            // Create the hangout with the creator as an attendee
             await hangoutRef.set({
                 id: hangoutId,
                 name,
@@ -37,6 +41,10 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                 minAttendees,
                 maxAttendees,
                 location: location.trim(),
+                createdBy: userId,
+                attendees: {
+                    [userId]: true
+                }
             });
 
             // Add the hangout to the group's hangouts list

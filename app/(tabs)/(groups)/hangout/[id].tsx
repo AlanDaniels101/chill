@@ -96,11 +96,18 @@ export default function HangoutPage() {
                         {group?.name || 'Loading...'}
                     </Text>
                 </View>
+
+                <View style={styles.infoRow}>
+                    <MaterialIcons name="people" size={24} color="#666" />
+                    <Text style={styles.infoText}>
+                        {Object.keys(attendees).length} / {hangout?.minAttendees || 2} - {hangout?.maxAttendees || 8} attendees
+                    </Text>
+                </View>
             </View>
 
             <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Attendees</Text>
+                    <Text style={styles.sectionTitle}>{isPast ? 'Who Went?' : 'Who\'s Going?'}</Text>
                     {!isPast && (
                         <Pressable 
                             style={styles.addButton}
