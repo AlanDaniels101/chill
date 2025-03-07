@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Text, View, StyleSheet, Pressable, Button, Alert } from 'react-native';
+import { Text, View, StyleSheet, Pressable, Button, Alert, ScrollView } from 'react-native';
 import { Hangout, Group, User } from '../../../../types';
 import { getDatabase } from '@react-native-firebase/database';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -34,7 +34,13 @@ export default function HangoutPage() {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            await getDatabase().ref(`/hangouts/${id}/attendees/${userId}`).remove();
+                            // Update local state immediately
+                            const newAttendees = { ...attendees };
+                            delete newAttendees[userId];
+                            setAttendees(newAttendees);
+                            
+                            // Update Firebase
+                            await getDatabase().ref(`/hangouts/${id}/attendees/${userId}`).set(null);
                         } catch (error) {
                             Alert.alert("Error", "Failed to decline the event. Please try again.");
                         }
@@ -42,6 +48,16 @@ export default function HangoutPage() {
                 }
             ]
         );
+    };
+
+    const handleRSVP = async () => {
+        if (!hangout) return;
+        
+        try {
+            await getDatabase().ref(`/hangouts/${id}/attendees/${userId}`).set(true);
+        } catch (error) {
+            Alert.alert("Error", "Failed to join the event. Please try again.");
+        }
     };
 
     useEffect(() => {
@@ -99,98 +115,116 @@ export default function HangoutPage() {
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <MaterialIcons 
-                    name="event" 
-                    size={40} 
-                    color="#2c3e50" 
-                />
-                <Text style={styles.title}>{hangout?.name}</Text>
-            </View>
+            <ScrollView 
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollViewContent}
+            >
+                <View style={styles.content}>
+                    <View style={styles.header}>
+                        <MaterialIcons 
+                            name="event" 
+                            size={40} 
+                            color="#2c3e50" 
+                        />
+                        <Text style={styles.title}>{hangout?.name}</Text>
+                    </View>
 
-            <View style={styles.infoSection}>
-                <View style={styles.infoRow}>
-                    <MaterialIcons name="schedule" size={24} color="#666" />
-                    <Text style={styles.infoText}>
-                        {date.toLocaleString()}
-                    </Text>
-                </View>
+                    <View style={styles.infoSection}>
+                        <View style={styles.infoRow}>
+                            <MaterialIcons name="schedule" size={24} color="#666" />
+                            <Text style={styles.infoText}>
+                                {date.toLocaleString()}
+                            </Text>
+                        </View>
 
-                <View style={styles.infoRow}>
-                    <MaterialIcons name="group" size={24} color="#666" />
-                    <Text style={styles.infoText}>
-                        {group?.name || 'Loading...'}
-                    </Text>
-                </View>
+                        <View style={styles.infoRow}>
+                            <MaterialIcons name="group" size={24} color="#666" />
+                            <Text style={styles.infoText}>
+                                {group?.name || 'Loading...'}
+                            </Text>
+                        </View>
 
-                <View style={styles.infoRow}>
-                    <MaterialIcons name="people" size={24} color="#666" />
-                    <Text style={styles.infoText}>
-                        {Object.keys(attendees).length} / {hangout?.minAttendees || 2} - {hangout?.maxAttendees || 8} attendees
-                    </Text>
-                </View>
-            </View>
+                        <View style={styles.infoRow}>
+                            <MaterialIcons name="people" size={24} color="#666" />
+                            <Text style={styles.infoText}>
+                                {Object.keys(attendees).length} / {hangout?.minAttendees || 2} - {hangout?.maxAttendees || 8} attendees
+                            </Text>
+                        </View>
+                    </View>
 
-            <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>{isPast ? 'Who Went?' : 'Who\'s Going?'}</Text>
-                    {!isPast && (
-                        <Pressable 
-                            style={styles.addButton}
-                            onPress={() => {/* Add invite functionality */}}
-                        >
-                            <MaterialIcons name="person-add" size={20} color="#5c8ed6" />
-                            <Text style={styles.addButtonText}>Invite</Text>
-                        </Pressable>
-                    )}
-                </View>
-                <View style={styles.attendeeList}>
-                    {hangout?.createdAnonymously && Object.keys(attendees).length < (hangout.minAttendees || 2) ? (
-                        <>
-                            {attendees[userId] && (
-                                <View style={styles.attendeeItem}>
-                                    <MaterialIcons name="person" size={20} color="#666" style={styles.attendeeIcon} />
-                                    <Text style={styles.attendeeName}>You</Text>
-                                    {!isPast && (
-                                        <Pressable 
-                                            style={styles.declineButton}
-                                            onPress={handleDecline}
-                                        >
-                                            <MaterialIcons name="close" size={20} color="#e74c3c" />
-                                        </Pressable>
-                                    )}
-                                </View>
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>{isPast ? 'Who Went?' : 'Who\'s Going?'}</Text>
+                            {!isPast && (
+                                <Pressable 
+                                    style={styles.addButton}
+                                    onPress={() => {/* Add invite functionality */}}
+                                >
+                                    <MaterialIcons name="person-add" size={20} color="#5c8ed6" />
+                                    <Text style={styles.addButtonText}>Invite</Text>
+                                </Pressable>
                             )}
-                            <View style={styles.anonymousMessage}>
-                                <MaterialIcons name="visibility-off" size={20} color="#666" />
-                                <Text style={styles.emptyText}>
-                                    Visible once {(hangout.minAttendees || 2) - Object.keys(attendees).length === 1 ? '1 more person joins' : `${(hangout.minAttendees || 2) - Object.keys(attendees).length} more people join`}
-                                </Text>
-                            </View>
-                        </>
-                    ) : (
-                        <>
-                            {Object.values(attendees).map(user => (
-                                <View key={user.id} style={styles.attendeeItem}>
-                                    <MaterialIcons name="person" size={20} color="#666" style={styles.attendeeIcon} />
-                                    <Text style={styles.attendeeName}>{user.id === userId ? 'You' : user.name}</Text>
-                                    {user.id === userId && !isPast && (
-                                        <Pressable 
-                                            style={styles.declineButton}
-                                            onPress={handleDecline}
-                                        >
-                                            <MaterialIcons name="close" size={20} color="#e74c3c" />
-                                        </Pressable>
+                        </View>
+                        <View style={styles.attendeeList}>
+                            {hangout?.createdAnonymously && Object.keys(attendees).length < (hangout.minAttendees || 2) ? (
+                                <>
+                                    {attendees[userId] && (
+                                        <View style={styles.attendeeItem}>
+                                            <MaterialIcons name="person" size={20} color="#666" style={styles.attendeeIcon} />
+                                            <Text style={styles.attendeeName}>You</Text>
+                                            {!isPast && (
+                                                <Pressable 
+                                                    style={styles.declineButton}
+                                                    onPress={handleDecline}
+                                                >
+                                                    <MaterialIcons name="close" size={20} color="#e74c3c" />
+                                                </Pressable>
+                                            )}
+                                        </View>
                                     )}
-                                </View>
-                            ))}
-                            {Object.keys(attendees).length === 0 && (
-                                <Text style={styles.emptyText}>No attendees yet</Text>
+                                    <View style={styles.anonymousMessage}>
+                                        <MaterialIcons name="visibility-off" size={20} color="#666" />
+                                        <Text style={styles.emptyText}>
+                                            Visible once {(hangout.minAttendees || 2) - Object.keys(attendees).length === 1 ? '1 more person joins' : `${(hangout.minAttendees || 2) - Object.keys(attendees).length} more people join`}
+                                        </Text>
+                                    </View>
+                                </>
+                            ) : (
+                                <>
+                                    {Object.values(attendees).map(user => (
+                                        <View key={user.id} style={styles.attendeeItem}>
+                                            <MaterialIcons name="person" size={20} color="#666" style={styles.attendeeIcon} />
+                                            <Text style={styles.attendeeName}>{user.id === userId ? 'You' : user.name}</Text>
+                                            {user.id === userId && !isPast && (
+                                                <Pressable 
+                                                    style={styles.declineButton}
+                                                    onPress={handleDecline}
+                                                >
+                                                    <MaterialIcons name="close" size={20} color="#e74c3c" />
+                                                </Pressable>
+                                            )}
+                                        </View>
+                                    ))}
+                                    {Object.keys(attendees).length === 0 && (
+                                        <Text style={styles.emptyText}>No attendees yet</Text>
+                                    )}
+                                </>
                             )}
-                        </>
-                    )}
+                        </View>
+                    </View>
                 </View>
-            </View>
+            </ScrollView>
+            {!isPast && !attendees[userId] && (
+                <View style={styles.bottomContainer}>
+                    <Pressable 
+                        style={styles.rsvpButton}
+                        onPress={handleRSVP}
+                    >
+                        <MaterialIcons name="check-circle" size={24} color="#fff" />
+                        <Text style={styles.rsvpButtonText}>I'm in!</Text>
+                    </Pressable>
+                </View>
+            )}
         </View>
     );
 }
@@ -198,13 +232,29 @@ export default function HangoutPage() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#f8f9fa',
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollViewContent: {
         padding: 16,
+        flexGrow: 1,
+    },
+    content: {
+        flex: 1,
+        padding: 16,
+        paddingTop: 8,
+    },
+    bottomContainer: {
+        padding: 16,
+        paddingBottom: 32,
         backgroundColor: '#fff',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: 16,
         gap: 12,
     },
     title: {
@@ -289,5 +339,28 @@ const styles = StyleSheet.create({
     declineButton: {
         padding: 4,
         marginLeft: 8,
+    },
+    rsvpButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 16,
+        paddingHorizontal: 24,
+        backgroundColor: '#5c8ed6',
+        borderRadius: 12,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    rsvpButtonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
     },
 }); 
