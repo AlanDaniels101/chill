@@ -16,6 +16,7 @@ export type GroupIcon = {
 export type User = {
     id: string;
     name: string;
+    fcmToken?: string;
     groups?: {
         [groupId: string]: boolean;  // Groups the user belongs to
     };

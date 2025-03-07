@@ -3,7 +3,6 @@ import { useEffect, useState, useMemo } from 'react'
 import { Text, View, StyleSheet, Pressable, Image, Alert, ScrollView } from 'react-native'
 import { Group, Hangout, GroupIcon, User } from '../../../../types'
 import { useAuth } from '../../../../ctx'
-
 import { getDatabase } from '@react-native-firebase/database';
 import React from 'react';
 import HangoutCard from '../../../components/hangoutCard';
@@ -11,6 +10,7 @@ import IconSelector from '../../../components/IconSelector';
 import { MaterialIcons } from '@expo/vector-icons';
 import AddMemberModal from '../../../components/AddMemberModal';
 import CreateHangoutModal from '../../../components/CreateHangoutModal';
+import NotificationToggle from '../../../components/NotificationToggle';
 
 function sortHangouts(hangouts: Hangout[]) {
     const now = new Date().getTime();
@@ -230,6 +230,8 @@ export default function GroupPage() {
                     </Pressable>
                 </View>
             )}
+
+            <NotificationToggle groupId={id as string} />
 
             <Pressable 
                 style={styles.createEventButton}
