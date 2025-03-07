@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect, useState, useMemo } from 'react'
-import { Text, View, StyleSheet, Pressable, Image, Alert, ScrollView } from 'react-native'
+import { Text, View, StyleSheet, Pressable, Image, Alert, ScrollView, TextInput } from 'react-native'
 import { Group, Hangout, GroupIcon, User } from '../../../../types'
 import { useAuth } from '../../../../ctx'
 import { getDatabase } from '@react-native-firebase/database';
@@ -53,7 +53,6 @@ export default function GroupPage() {
 
     useEffect(() => {
         setLoadComplete(false)
-        navigation.setOptions({ title: `Group ${name}` })
 
         const groupRef = getDatabase().ref(`/groups/${id}`);
         const usersRef = getDatabase().ref('/users');
@@ -87,6 +86,8 @@ export default function GroupPage() {
             setHangouts(hangouts);
             setUsers(users);
             setLoadComplete(true);
+            // Update navigation title with group name from database
+            navigation.setOptions({ title: group.name });
         };
 
         // Subscribe to changes
@@ -96,7 +97,7 @@ export default function GroupPage() {
         return () => {
             groupRef.off('value', onGroupUpdate);
         };
-    }, [navigation, id, name]);
+    }, [navigation, id]);
 
     const handleDeleteGroup = async () => {
         if (!group || !userId) return;
@@ -205,29 +206,73 @@ export default function GroupPage() {
                         color="#2c3e50" 
                     />
                 )}
-                <Text style={styles.title}>Group {name}</Text>
+                <View style={styles.headerTextContainer}>
+                    <Text style={styles.title}>{group?.name || name}</Text>
+                </View>
                 {isAdmin && !isEditingIcon && (
                     <Pressable 
                         style={styles.editButton}
                         onPress={() => setIsEditingIcon(true)}
                     >
-                        <Text style={styles.editButtonText}>Change Icon</Text>
+                        <Text style={styles.editButtonText}>Edit</Text>
                     </Pressable>
                 )}
             </View>
 
             {isAdmin && isEditingIcon && (
                 <View style={styles.iconSelector}>
+                    <Text style={styles.editLabel}>Group Name</Text>
+                    <TextInput
+                        style={styles.editInput}
+                        value={group?.name || ''}
+                        onChangeText={(text) => {
+                            if (group) {
+                                setGroup({ ...group, name: text });
+                            }
+                        }}
+                        placeholder="Enter group name"
+                    />
+                    <Text style={styles.editLabel}>Group Icon</Text>
                     <IconSelector
                         selectedIcon={group?.icon || { type: 'material', value: 'groups' }}
                         onSelect={handleUpdateIcon}
                     />
-                    <Pressable 
-                        style={styles.cancelButton}
-                        onPress={() => setIsEditingIcon(false)}
-                    >
-                        <Text style={styles.cancelButtonText}>Cancel</Text>
-                    </Pressable>
+                    <View style={styles.editActions}>
+                        <Pressable 
+                            style={styles.cancelButton}
+                            onPress={() => {
+                                setIsEditingIcon(false);
+                                // Reset group name if cancelled
+                                if (group) {
+                                    setGroup({ ...group, name: name as string });
+                                }
+                            }}
+                        >
+                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                        </Pressable>
+                        <Pressable 
+                            style={styles.saveButton}
+                            onPress={async () => {
+                                if (!group?.id) return;
+                                try {
+                                    await getDatabase()
+                                        .ref(`/groups/${group.id}`)
+                                        .update({ 
+                                            icon: group.icon,
+                                            name: group.name
+                                        });
+                                    // Update the navigation title
+                                    navigation.setOptions({ title: group.name });
+                                    setIsEditingIcon(false);
+                                } catch (error) {
+                                    console.error('Error updating group:', error);
+                                    Alert.alert('Error', 'Failed to update group');
+                                }
+                            }}
+                        >
+                            <Text style={styles.saveButtonText}>Save</Text>
+                        </Pressable>
+                    </View>
                 </View>
             )}
 
@@ -390,9 +435,13 @@ const styles = StyleSheet.create({
     },
     header: {
         flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 20,
-        gap: 12,
+        alignItems: 'flex-start',
+        padding: 16,
+        minHeight: 60,
+    },
+    headerTextContainer: {
+        flex: 1,
+        marginLeft: 12,
     },
     headerIcon: {
         width: 40,
@@ -400,13 +449,20 @@ const styles = StyleSheet.create({
         borderRadius: 20,
     },
     editButton: {
-        backgroundColor: '#5c8ed6',
-        padding: 8,
+        position: 'absolute',
+        right: 16,
+        top: 52,
+        paddingVertical: 4,
+        paddingHorizontal: 12,
+        backgroundColor: '#e8f0fe',
         borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#5c8ed6',
     },
     editButtonText: {
-        color: 'white',
-        fontSize: 14,
+        fontSize: 12,
+        color: '#5c8ed6',
+        fontWeight: '500',
     },
     iconSelector: {
         marginBottom: 20,
@@ -414,12 +470,45 @@ const styles = StyleSheet.create({
         backgroundColor: '#f5f5f5',
         borderRadius: 12,
     },
+    editLabel: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#2c3e50',
+        marginBottom: 8,
+    },
+    editInput: {
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 16,
+        marginBottom: 16,
+    },
+    editActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 12,
+        marginTop: 16,
+    },
     cancelButton: {
-        alignSelf: 'flex-end',
-        marginTop: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
     },
     cancelButtonText: {
         color: '#666',
+        fontSize: 16,
+    },
+    saveButton: {
+        backgroundColor: '#5c8ed6',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 6,
+    },
+    saveButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '500',
     },
     section: {
         marginVertical: 24,
