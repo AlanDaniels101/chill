@@ -60,6 +60,38 @@ export default function HangoutPage() {
         }
     };
 
+    const handleDelete = async () => {
+        if (!hangout) return;
+        
+        Alert.alert(
+            "Delete Hangout",
+            "Are you sure you want to delete this hangout?",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel"
+                },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            // Remove from group's hangouts list first
+                            if (hangout.group) {
+                                await getDatabase().ref(`/groups/${hangout.group}/hangouts/${id}`).remove();
+                            }
+                            // Then remove the hangout itself
+                            await getDatabase().ref(`/hangouts/${id}`).remove();
+                            navigation.goBack();
+                        } catch (error) {
+                            Alert.alert("Error", "Failed to delete the hangout. Please try again.");
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     useEffect(() => {
         setLoadComplete(false);
         navigation.setOptions({
@@ -127,6 +159,16 @@ export default function HangoutPage() {
                             color="#2c3e50" 
                         />
                         <Text style={styles.title}>{hangout?.name}</Text>
+                        {hangout?.createdBy === userId && 
+                         (Object.keys(attendees).length === 0 || 
+                         (Object.keys(attendees).length === 1 && attendees[userId])) && (
+                            <Pressable 
+                                style={styles.deleteButton}
+                                onPress={handleDelete}
+                            >
+                                <MaterialIcons name="delete" size={24} color="#e74c3c" />
+                            </Pressable>
+                        )}
                     </View>
 
                     <View style={styles.infoSection}>
@@ -261,6 +303,7 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: 'bold',
         color: '#2c3e50',
+        flex: 1,
     },
     infoSection: {
         backgroundColor: '#f5f5f5',
@@ -362,5 +405,8 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 18,
         fontWeight: '600',
+    },
+    deleteButton: {
+        padding: 8,
     },
 }); 
