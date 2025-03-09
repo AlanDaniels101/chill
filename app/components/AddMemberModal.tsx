@@ -63,13 +63,10 @@ export default function AddMemberModal({ visible, groupId, onClose }: Props) {
     // Add function to handle sharing
     const handleShareInvite = async () => {
         try {
-            // Get the group name for a more personalized message
             const groupSnapshot = await getDatabase().ref(`/groups/${groupId}`).once('value');
             const groupName = groupSnapshot.val()?.name || 'our group';
             
             const appLink = `chill://join-group/${groupId}`;
-            
-            // Define app store links for fallback
             const appStoreLink = 'https://apps.apple.com/app/chill/id1234567890'; // Replace with your App Store ID
             const playStoreLink = 'https://play.google.com/store/apps/details?id=com.alan101.chill';
             
@@ -114,7 +111,7 @@ export default function AddMemberModal({ visible, groupId, onClose }: Props) {
                     <View style={styles.qrContainer}>
                         <Text style={styles.qrTitle}>Share this QR code:</Text>
                         <QRCode
-                            value={`chill://join-group?groupId=${groupId}`}
+                            value={`chill://join-group/${groupId}`}
                             size={200}
                         />
                         <Text style={styles.qrInstructions}>

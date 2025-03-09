@@ -94,12 +94,13 @@ export default function HangoutPage() {
 
     const handleShare = async () => {
         try {
+            const appLink = `chill://hangout/${id}`;
             const message = `Join our hangout "${hangout?.name}" on Chill!\n\n` +
                 `Open in the Chill app: chill://hangout/${id}`;
             
             await Share.share({
                 message,
-                url: `chill://hangout/${id}`,
+                url: appLink,
                 title: `Join ${hangout?.name} on Chill`
             });
         } catch (error) {
