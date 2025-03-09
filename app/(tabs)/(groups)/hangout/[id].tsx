@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Text, View, StyleSheet, Pressable, Button, Alert, ScrollView } from 'react-native';
+import { Text, View, StyleSheet, Pressable, Button, Alert, ScrollView, Share } from 'react-native';
 import { Hangout, Group, User } from '../../../../types';
 import { getDatabase } from '@react-native-firebase/database';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -90,6 +90,22 @@ export default function HangoutPage() {
                 }
             ]
         );
+    };
+
+    const handleShare = async () => {
+        try {
+            const message = `Join our hangout "${hangout?.name}" on Chill!\n\n` +
+                `Open in the Chill app: chill://hangout/${id}`;
+            
+            await Share.share({
+                message,
+                url: `chill://hangout/${id}`,
+                title: `Join ${hangout?.name} on Chill`
+            });
+        } catch (error) {
+            console.error('Error sharing:', error);
+            Alert.alert('Error', 'Could not share the invitation');
+        }
     };
 
     useEffect(() => {
@@ -200,7 +216,7 @@ export default function HangoutPage() {
                             {!isPast && (
                                 <Pressable 
                                     style={styles.addButton}
-                                    onPress={() => {/* Add invite functionality */}}
+                                    onPress={handleShare}
                                 >
                                     <MaterialIcons name="person-add" size={20} color="#5c8ed6" />
                                     <Text style={styles.addButtonText}>Invite</Text>
