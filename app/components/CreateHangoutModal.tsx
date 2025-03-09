@@ -15,7 +15,18 @@ type Props = {
 export default function CreateHangoutModal({ visible, onClose, groupId }: Props) {
     const { userId } = useAuth();
     const [name, setName] = useState('');
-    const [date, setDate] = useState(new Date());
+    
+    // Set default date to 1 day from now, at the next hour
+    const getTomorrowDate = () => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(tomorrow.getHours() + 1);
+        tomorrow.setMinutes(0);
+        tomorrow.setSeconds(0);
+        return tomorrow;
+    };
+    
+    const [date, setDate] = useState(getTomorrowDate());
     const [showPicker, setShowPicker] = useState(false);
     const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
     const [createdAnonymously, setCreatedAnonymously] = useState(true);
@@ -23,6 +34,14 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
     const [maxAttendees, setMaxAttendees] = useState(8);
     const [showTooltip, setShowTooltip] = useState(false);
     const [location, setLocation] = useState('');
+
+    // Reset form with tomorrow's date
+    const resetForm = () => {
+        setName('');
+        setDate(getTomorrowDate());
+        setCreatedAnonymously(true);
+        setLocation('');
+    };
 
     const handleCreate = async () => {
         if (!userId) return;
@@ -52,11 +71,8 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                 .ref(`/groups/${groupId}/hangouts/${hangoutId}`)
                 .set(true);
 
-            // Reset form
-            setName('');
-            setDate(new Date());
-            setCreatedAnonymously(true);
-            setLocation('');
+            // Reset form using the resetForm function
+            resetForm();
             onClose();
         } catch (error) {
             console.error('Error creating hangout:', error);
