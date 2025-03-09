@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable, TextInput, Alert, Share } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getDatabase } from '@react-native-firebase/database';
 import QRCode from 'react-native-qrcode-svg';
@@ -60,38 +60,75 @@ export default function AddMemberModal({ visible, groupId, onClose }: Props) {
         addMember();
     };
 
+    // Add function to handle sharing
+    const handleShareInvite = async () => {
+        try {
+            // Get the group name for a more personalized message
+            const groupSnapshot = await getDatabase().ref(`/groups/${groupId}`).once('value');
+            const groupName = groupSnapshot.val()?.name || 'our group';
+            
+            const appLink = `chill://join-group/${groupId}`;
+            
+            // Define app store links for fallback
+            const appStoreLink = 'https://apps.apple.com/app/chill/id1234567890'; // Replace with your App Store ID
+            const playStoreLink = 'https://play.google.com/store/apps/details?id=com.alan101.chill';
+            
+            const message = `Join ${groupName} on Chill!\n\n` +
+                `If you have Chill installed, tap this link to join: ${appLink}\n\n` +
+                `Or get the app here:\n` +
+                `iOS: ${appStoreLink}\n` +
+                `Android: ${playStoreLink}`;
+            
+            const result = await Share.share({
+                message,
+                url: appLink,
+                title: `Join ${groupName} on Chill`
+            });
+            
+            if (result.action === Share.sharedAction) {
+                if (result.activityType) {
+                    console.log(`Shared via ${result.activityType}`);
+                } else {
+                    console.log('Shared successfully');
+                }
+            } else if (result.action === Share.dismissedAction) {
+                console.log('Share dismissed');
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Could not share the invitation');
+            console.error('Error sharing:', error);
+        }
+    };
+
     return (
         <Modal
-            visible={visible}
+            animationType="slide"
             transparent={true}
-            animationType="fade"
+            visible={visible}
             onRequestClose={handleClose}
         >
-            <Pressable 
-                style={styles.modalOverlay}
-                onPress={handleClose}
-            >
-                <Pressable 
-                    style={styles.modalContent}
-                    onPress={e => e.stopPropagation()}
-                >
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Add Member</Text>
-                        <Pressable onPress={handleClose}>
-                            <MaterialIcons name="close" size={24} color="#666" />
-                        </Pressable>
-                    </View>
-
+            <View style={styles.modalContainer}>
+                <View style={styles.modalContent}>
+                    <Text style={styles.modalTitle}>Add Member</Text>
+                    
                     <View style={styles.qrContainer}>
-                        <Text style={styles.qrText}>Scan this code to join:</Text>
+                        <Text style={styles.qrTitle}>Share this QR code:</Text>
                         <QRCode
-                            value={`chill://join-group/${groupId}`}
+                            value={`chill://join-group?groupId=${groupId}`}
                             size={200}
                         />
                         <Text style={styles.qrInstructions}>
                             To join, you need the Chill app installed.{'\n'}
                             Get it from the App Store or Play Store.
                         </Text>
+                        
+                        <Pressable 
+                            style={styles.shareButton}
+                            onPress={handleShareInvite}
+                        >
+                            <MaterialIcons name="share" size={20} color="white" />
+                            <Text style={styles.shareButtonText}>Share Invite Link</Text>
+                        </Pressable>
                     </View>
 
                     <View style={styles.divider} />
@@ -133,14 +170,14 @@ export default function AddMemberModal({ visible, groupId, onClose }: Props) {
                             <Text style={styles.buttonText}>Add</Text>
                         </Pressable>
                     </View>
-                </Pressable>
-            </Pressable>
+                </View>
+            </View>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
-    modalOverlay: {
+    modalContainer: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'center',
@@ -152,12 +189,6 @@ const styles = StyleSheet.create({
         padding: 20,
         width: '80%',
         gap: 16,
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 4,
     },
     modalTitle: {
         fontSize: 20,
@@ -203,7 +234,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 16,
     },
-    qrText: {
+    qrTitle: {
         fontSize: 14,
         color: '#666',
         textAlign: 'center',
@@ -228,5 +259,20 @@ const styles = StyleSheet.create({
         padding: 8,
         borderRadius: 6,
         backgroundColor: '#5c8ed6',
+    },
+    shareButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#5c8ed6',
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 8,
+        marginTop: 15,
+    },
+    shareButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        marginLeft: 8,
     },
 }); 
