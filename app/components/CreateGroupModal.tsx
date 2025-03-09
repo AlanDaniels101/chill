@@ -23,6 +23,9 @@ export default function CreateGroupModal({ visible, onClose }: Props) {
         hangouts: {},
         admins: {
           [userId]: true
+        },
+        members: {
+          [userId]: true
         }
       });
       
