@@ -174,6 +174,26 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         }
       };
 
+      // Set up foreground notification handler
+      const unsubscribeMessage = getMessaging().onMessage(async (remoteMessage) => {
+        console.log('Foreground FCM message received:', remoteMessage);
+              
+        // Handle the notification based on its type
+        if (remoteMessage.data?.type === 'new_hangout') {
+          // You can show a custom UI component for new hangouts
+          // or use a local notification library to show a notification
+          
+          // Example: You could dispatch an event to show a toast or in-app notification
+          // Or use a library like react-native-push-notification to show a local notification
+          console.log('New hangout notification:', remoteMessage.notification?.title);
+          
+          // You could also navigate to the relevant screen
+          // if (remoteMessage.data?.groupId && remoteMessage.data?.hangoutId) {
+          //   router.push(`/group/${remoteMessage.data.groupId}/hangout/${remoteMessage.data.hangoutId}`);
+          // }
+        }
+      });
+
       let setupPromise: Promise<(() => void) | undefined> | undefined;
       
       if (userId) {
@@ -183,6 +203,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       return () => {
         // When unmounting, wait for setup to complete then cleanup
         setupPromise?.then(unsubscribe => unsubscribe?.());
+        unsubscribeMessage(); // Clean up the message listener
       };
     }, [userId]);
 

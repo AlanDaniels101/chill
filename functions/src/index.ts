@@ -24,56 +24,24 @@ const database = getDatabase();
 const messaging = getMessaging();
 
 export const notifyGroupSubscribers = onValueCreated(
-    "groups/{groupId}/hangouts/{hangoutId}",
+    "hangouts/{hangoutId}",
     async (event) => {
         const hangoutId = event.params.hangoutId;
-        const groupId = event.params.groupId;
+        logger.info(`New hangout created - ID: ${hangoutId}`);
         
-        // Get the value directly from the event data
-        let hangout = event.data.val();
-        logger.info(`New hangout created - ID: ${hangoutId}, Group: ${groupId}`);
+        const hangout = event.data.val();
+        logger.debug("Hangout object:", JSON.stringify(hangout));
         
-        // Log the complete hangout object for debugging
-        logger.info("Complete hangout object:", JSON.stringify(hangout));
-        
-        // Check if createdBy exists
-        if (!hangout || typeof hangout !== "object" || !hangout.createdBy) {
-            logger.warn(`Missing createdBy field in hangout. Hangout data: ${JSON.stringify(hangout)}`);
-            
-            // Try to fetch the hangout directly from the database to verify
-            const hangoutRef = database.ref(`groups/${groupId}/hangouts/${hangoutId}`);
-            const hangoutSnapshot = await hangoutRef.once("value");
-            const hangoutFromDb = hangoutSnapshot.val();
-            
-            logger.info("Hangout fetched directly from DB:", JSON.stringify(hangoutFromDb));
-            
-            // Use the createdBy from the direct DB fetch if available
-            if (hangoutFromDb && hangoutFromDb.createdBy) {
-                hangout.createdBy = hangoutFromDb.createdBy;
-                logger.info(`Found createdBy from direct DB fetch: ${hangout.createdBy}`);
-            } else {
-                logger.warn("Could not find createdBy field even in direct DB fetch");
-            }
+        if (!hangout || typeof hangout !== "object") {
+            logger.warn("Invalid hangout data, skipping notification");
+            return;
         }
         
-        // If hangout is just a boolean or not an object, wait and try again
-        if (hangout === true || typeof hangout !== "object" || !hangout) {
-            logger.info("Hangout is just a placeholder. Waiting for complete data...");
-            
-            // Wait a short time for the data to be updated
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-            
-            // Try to fetch the complete hangout data
-            const hangoutRef = database.ref(`groups/${groupId}/hangouts/${hangoutId}`);
-            const hangoutFromDb = (await hangoutRef.once("value")).val();
-            
-            logger.info("Hangout fetched after delay:", JSON.stringify(hangoutFromDb));
-            
-            // Use the fetched data if it's an object
-            if (hangoutFromDb && typeof hangoutFromDb === "object") {
-                hangout = hangoutFromDb;
-                logger.info(`Using updated hangout data with creator: ${hangout?.createdBy}`);
-            }
+        // Get the group ID from the hangout
+        const groupId = hangout.group;
+        if (!groupId) {
+            logger.warn("Hangout doesn't have a groupId, skipping notification");
+            return;
         }
         
         // Fetch the group members
@@ -121,7 +89,7 @@ export const notifyGroupSubscribers = onValueCreated(
 
         // Get the hangout details
         const hangoutName = hangout?.name || "New hangout";
-        const hangoutTime = hangout?.time ? new Date(hangout.time).toLocaleString() : "soon";
+        const hangoutTime = hangout?.time ? `on ${new Date(hangout.time).toLocaleString()}` : "soon";
 
         // Get the group name
         const groupSnapshot = await database.ref(`groups/${groupId}`).once("value");
@@ -166,8 +134,7 @@ export const notifyGroupSubscribers = onValueCreated(
             },
         };
 
-        // Log the message for debugging
-        logger.info("Sending FCM message:", JSON.stringify(message));
+        logger.debug("Sending FCM message:", JSON.stringify(message));
 
         try {
             // Create messages for each token
@@ -178,7 +145,7 @@ export const notifyGroupSubscribers = onValueCreated(
             
             // Send the notifications
             const response = await messaging.sendEach(messages);
-            logger.info(`Notifications sent: ${response.successCount}/${fcmTokens.length}`);
+            logger.debug(`Notifications sent: ${response.successCount}/${fcmTokens.length}`);
             
             // Log any failures
             if (response.failureCount > 0) {
