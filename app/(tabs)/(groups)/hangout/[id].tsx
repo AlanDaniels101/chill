@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Text, View, StyleSheet, Pressable, Button, Alert, ScrollView, Share } from 'react-native';
+import { Text, View, StyleSheet, Pressable, Alert, ScrollView } from 'react-native';
 import { Hangout, Group, User } from '../../../../types';
 import { getDatabase } from '@react-native-firebase/database';
 import { MaterialIcons } from '@expo/vector-icons';

@@ -14,8 +14,8 @@
 		96905EF65AED1B983A6B3ABC /* libPods-Chill.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 58EEBF8E8E6FB1BC6CAF49B5 /* libPods-Chill.a */; };
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		E7B368B6384E4423B66E9715 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = E63796ED0AFB4F88B7F419FE /* GoogleService-Info.plist */; };
-		D9544059FE4C43289652A577 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA990520CB584C1FA5B5B8BF /* noop-file.swift */; };
+		FC5D32B3E54B41D49BC09AC1 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7D5D67B284F340E1B53FA364 /* GoogleService-Info.plist */; };
+		22A8DBD66F0040D696F409DA /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3084D3C78C94E29A9367AAB /* noop-file.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,9 +32,9 @@
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Chill/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		E63796ED0AFB4F88B7F419FE /* GoogleService-Info.plist */ = {isa = PBXFileReference; name = "GoogleService-Info.plist"; path = "Chill/GoogleService-Info.plist"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = text.plist.xml; explicitFileType = undefined; includeInIndex = 0; };
-		CA990520CB584C1FA5B5B8BF /* noop-file.swift */ = {isa = PBXFileReference; name = "noop-file.swift"; path = "Chill/noop-file.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
-		39DA17B9EC0A4D258D563676 /* Chill-Bridging-Header.h */ = {isa = PBXFileReference; name = "Chill-Bridging-Header.h"; path = "Chill/Chill-Bridging-Header.h"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; explicitFileType = undefined; includeInIndex = 0; };
+		7D5D67B284F340E1B53FA364 /* GoogleService-Info.plist */ = {isa = PBXFileReference; name = "GoogleService-Info.plist"; path = "Chill/GoogleService-Info.plist"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = text.plist.xml; explicitFileType = undefined; includeInIndex = 0; };
+		C3084D3C78C94E29A9367AAB /* noop-file.swift */ = {isa = PBXFileReference; name = "noop-file.swift"; path = "Chill/noop-file.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
+		C20F42B5610844CEA68EE237 /* Chill-Bridging-Header.h */ = {isa = PBXFileReference; name = "Chill-Bridging-Header.h"; path = "Chill/Chill-Bridging-Header.h"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,9 +59,9 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				13B07FB71A68108700A75B9A /* main.m */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				E63796ED0AFB4F88B7F419FE /* GoogleService-Info.plist */,
-				CA990520CB584C1FA5B5B8BF /* noop-file.swift */,
-				39DA17B9EC0A4D258D563676 /* Chill-Bridging-Header.h */,
+				7D5D67B284F340E1B53FA364 /* GoogleService-Info.plist */,
+				C3084D3C78C94E29A9367AAB /* noop-file.swift */,
+				C20F42B5610844CEA68EE237 /* Chill-Bridging-Header.h */,
 			);
 			name = Chill;
 			sourceTree = "<group>";
@@ -201,8 +201,8 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				E7B368B6384E4423B66E9715 /* GoogleService-Info.plist in Resources */,
-				C7D0023B11BD49DDA786EF1B /* Chill-Bridging-Header.h in Resources */,
+				FC5D32B3E54B41D49BC09AC1 /* GoogleService-Info.plist in Resources */,
+				C36A4AC1E07B4CDD9A258052 /* Chill-Bridging-Header.h in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -278,7 +278,7 @@
 				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
 				B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */,
-				D9544059FE4C43289652A577 /* noop-file.swift in Sources */,
+				22A8DBD66F0040D696F409DA /* noop-file.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
