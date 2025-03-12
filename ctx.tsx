@@ -1,6 +1,8 @@
 import { router } from 'expo-router';
 import { useContext, createContext, type PropsWithChildren, useEffect, useState } from 'react';
 import { Platform, PermissionsAndroid } from 'react-native';
+import { showMessage } from 'react-native-flash-message';
+import { MaterialIcons } from '@expo/vector-icons';
 
 import { getAuth } from '@react-native-firebase/auth'
 import { getDatabase } from '@react-native-firebase/database';
@@ -180,17 +182,56 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
               
         // Handle the notification based on its type
         if (remoteMessage.data?.type === 'new_hangout') {
-          // You can show a custom UI component for new hangouts
-          // or use a local notification library to show a notification
+          const { groupId, hangoutId } = remoteMessage.data;
+          const { title, body } = remoteMessage.notification || {};
+
+          if (!groupId || !hangoutId || !title || !body) {
+            console.error('Missing required notification data:', { groupId, hangoutId, title, body });
+            return;
+          }
           
-          // Example: You could dispatch an event to show a toast or in-app notification
-          // Or use a library like react-native-push-notification to show a local notification
-          console.log('New hangout notification:', remoteMessage.notification?.title);
-          
-          // You could also navigate to the relevant screen
-          // if (remoteMessage.data?.groupId && remoteMessage.data?.hangoutId) {
-          //   router.push(`/group/${remoteMessage.data.groupId}/hangout/${remoteMessage.data.hangoutId}`);
-          // }
+          showMessage({
+            message: title,
+            description: body + '\n\nTap to view',
+            type: 'default',
+            backgroundColor: '#2c3e50',
+            color: '#ffffff',
+            duration: 4000,
+            icon: 'none',
+            style: {
+              borderRadius: 12,
+              marginTop: 8,
+              marginHorizontal: 8,
+              borderLeftColor: '#7dacf9',
+              borderLeftWidth: 4,
+              shadowColor: '#000',
+              shadowOffset: {
+                width: 0,
+                height: 2,
+              },
+              shadowOpacity: 0.25,
+              shadowRadius: 3.84,
+              elevation: 5,
+            },
+            titleStyle: {
+              fontSize: 16,
+              fontWeight: '600',
+            },
+            textStyle: {
+              fontSize: 14,
+            },
+            renderCustomContent: () => (
+              <MaterialIcons 
+                name="chevron-right" 
+                size={24} 
+                color="#ffffff" 
+                style={{ position: 'absolute', right: 12, top: '50%', transform: [{ translateY: -12 }] }}
+              />
+            ),
+            onPress: () => {
+              router.push(`/(tabs)/(groups)/hangout/${hangoutId}`);
+            },
+          });
         }
       });
 
