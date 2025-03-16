@@ -137,12 +137,29 @@ export default function GroupPage() {
     const handleDeleteGroup = async () => {
         if (!group || !userId) return;
         
-        try {
-            await getDatabase().ref(`/groups/${id}`).remove();
-            router.replace('/');
-        } catch (error) {
-            console.error('Error deleting group:', error);
-        }
+        Alert.alert(
+            "Delete Group",
+            "Are you sure you want to delete this group? This action cannot be undone.",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel"
+                },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await getDatabase().ref(`/groups/${id}`).remove();
+                            router.replace('/');
+                        } catch (error) {
+                            console.error('Error deleting group:', error);
+                            Alert.alert('Error', 'Failed to delete the group');
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     const handleUpdateIcon = async (newIcon: GroupIcon) => {
@@ -216,6 +233,53 @@ export default function GroupPage() {
             console.error('Error adding member:', error);
             Alert.alert('Error', 'Failed to add member');
         }
+    };
+
+    const handleLeaveGroup = async () => {
+        if (!group?.id || !userId) return;
+        
+        // Check if user is the last admin
+        const isLastAdmin = isAdmin && 
+            Object.keys(group.admins || {}).length === 1 && 
+            group.admins[userId];
+
+        if (isLastAdmin) {
+            Alert.alert(
+                "Cannot Leave Group",
+                "You are the last admin. Please make another member an admin before leaving.",
+                [{ text: "OK" }]
+            );
+            return;
+        }
+        
+        Alert.alert(
+            "Leave Group",
+            "Are you sure you want to leave this group?",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel"
+                },
+                {
+                    text: "Leave",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            // Remove user from members and admins
+                            const updates: { [key: string]: any } = {};
+                            updates[`/groups/${group.id}/members/${userId}`] = null;
+                            updates[`/groups/${group.id}/admins/${userId}`] = null;
+                            
+                            await getDatabase().ref().update(updates);
+                            router.replace('/');
+                        } catch (error) {
+                            console.error('Error leaving group:', error);
+                            Alert.alert('Error', 'Failed to leave the group');
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     if (!loadComplete) return null
@@ -457,6 +521,15 @@ export default function GroupPage() {
                 </View>
 
                 <NotificationToggle groupId={id as string} />
+                
+                {group?.members?.[userId] && (
+                    <Pressable 
+                        style={styles.leaveButton}
+                        onPress={handleLeaveGroup}
+                    >
+                        <Text style={styles.leaveButtonText}>Leave Group</Text>
+                    </Pressable>
+                )}
                 
                 {isAdmin && (
                     <Pressable 
@@ -776,5 +849,17 @@ const styles = StyleSheet.create({
     linkText: {
         color: '#5c8ed6',
         textDecorationLine: 'underline',
+    },
+    leaveButton: {
+        backgroundColor: '#ff8888',
+        padding: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 20,
+    },
+    leaveButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });
