@@ -48,7 +48,6 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Groups</Text>
       <Pressable 
         style={styles.createButton}
         onPress={() => setModalVisible(true)}
