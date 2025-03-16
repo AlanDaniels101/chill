@@ -48,7 +48,8 @@ export default function RootLayout() {
           gestureEnabled: true,
           gestureDirection: 'horizontal',
           animation: 'slide_from_right',
-          presentation: 'card'
+          presentation: 'card',
+          navigationBarColor: '#7dacf9',
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
