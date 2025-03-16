@@ -31,6 +31,7 @@ export type Group = {
     id: string;
     name: string;
     icon?: GroupIcon;
+    info?: string;
     hangouts: {
         [id: string]: boolean;
     };

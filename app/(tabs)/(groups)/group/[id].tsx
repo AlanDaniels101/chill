@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect, useState, useMemo } from 'react'
-import { Text, View, StyleSheet, Pressable, Image, Alert, ScrollView, TextInput } from 'react-native'
+import { Text, View, StyleSheet, Pressable, Image, Alert, ScrollView, TextInput, Linking } from 'react-native'
 import { Group, Hangout, GroupIcon, User } from '../../../../types'
 import { useAuth } from '../../../../ctx'
 import { getDatabase } from '@react-native-firebase/database';
@@ -32,6 +32,40 @@ function sortHangouts(hangouts: Hangout[]) {
     });
 }
 
+// URL regex pattern
+const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
+
+// Function to split text into parts with URLs
+function parseTextWithUrls(text: string) {
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = URL_PATTERN.exec(text)) !== null) {
+        // Add text before URL
+        if (match.index > lastIndex) {
+            parts.push({
+                type: 'text',
+                content: text.slice(lastIndex, match.index)
+            });
+        }
+        // Add URL
+        parts.push({
+            type: 'url',
+            content: match[0]
+        });
+        lastIndex = match.index + match[0].length;
+    }
+    // Add remaining text
+    if (lastIndex < text.length) {
+        parts.push({
+            type: 'text',
+            content: text.slice(lastIndex)
+        });
+    }
+    return parts;
+}
+
 export default function GroupPage() {
     const navigation = useNavigation()
     const router = useRouter()
@@ -47,6 +81,7 @@ export default function GroupPage() {
     const [isAddingMember, setIsAddingMember] = useState(false);
     const [newMemberUid, setNewMemberUid] = useState('');
     const [isCreatingHangout, setIsCreatingHangout] = useState(false);
+    const [tentativeInfo, setTentativeInfo] = useState('');
     
     const sortedHangouts = useMemo(() => sortHangouts(hangouts || []), [hangouts]);
     const isAdmin = userId && group?.admins?.[userId];
@@ -246,14 +281,24 @@ export default function GroupPage() {
                             selectedIcon={group?.icon || { type: 'material', value: 'groups' }}
                             onSelect={handleUpdateIcon}
                         />
+                        <Text style={styles.editLabel}>Group Info</Text>
+                        <TextInput
+                            style={[styles.editInput, styles.infoInput]}
+                            value={tentativeInfo}
+                            onChangeText={setTentativeInfo}
+                            placeholder="Enter group description, links, or other information"
+                            multiline
+                            numberOfLines={4}
+                        />
                         <View style={styles.editActions}>
                             <Pressable 
                                 style={styles.cancelButton}
                                 onPress={() => {
                                     setIsEditingIcon(false);
-                                    // Reset group name if cancelled
+                                    // Reset group name and info if cancelled
                                     if (group) {
                                         setGroup({ ...group, name: name as string });
+                                        setTentativeInfo(group.info || '');
                                     }
                                 }}
                             >
@@ -268,10 +313,12 @@ export default function GroupPage() {
                                             .ref(`/groups/${group.id}`)
                                             .update({ 
                                                 icon: group.icon,
-                                                name: group.name
+                                                name: group.name,
+                                                info: tentativeInfo
                                             });
-                                        // Update the navigation title
+                                        // Update the navigation title and group info
                                         navigation.setOptions({ title: group.name });
+                                        setGroup({ ...group, info: tentativeInfo });
                                         setIsEditingIcon(false);
                                     } catch (error) {
                                         console.error('Error updating group:', error);
@@ -285,7 +332,39 @@ export default function GroupPage() {
                     </View>
                 )}
 
-                <NotificationToggle groupId={id as string} />
+                {group?.info && (
+                    <View style={styles.infoSection}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Info</Text>
+                            {isAdmin && (
+                                <Pressable 
+                                    style={styles.editButton}
+                                    onPress={() => {
+                                        setTentativeInfo(group.info || '');
+                                        setIsEditingIcon(true);
+                                    }}
+                                >
+                                    <Text style={styles.editButtonText}>Edit</Text>
+                                </Pressable>
+                            )}
+                        </View>
+                        <Text>
+                            {parseTextWithUrls(group.info).map((part, index) => (
+                                part.type === 'url' ? (
+                                    <Text
+                                        key={index}
+                                        style={styles.linkText}
+                                        onPress={() => Linking.openURL(part.content)}
+                                    >
+                                        {part.content}
+                                    </Text>
+                                ) : (
+                                    <Text key={index} style={styles.infoText}>{part.content}</Text>
+                                )
+                            ))}
+                        </Text>
+                    </View>
+                )}
 
                 <Text style={styles.sectionTitle}>Hangouts</Text>
                 <View style={styles.hangoutListContainer}>
@@ -376,6 +455,8 @@ export default function GroupPage() {
                         </View>
                     </View>
                 </View>
+
+                <NotificationToggle groupId={id as string} />
                 
                 {isAdmin && (
                     <Pressable 
@@ -676,5 +757,24 @@ const styles = StyleSheet.create({
     },
     memberList: {
         maxHeight: 200, // Fixed height for each member list
+    },
+    infoSection: {
+        backgroundColor: '#f5f5f5',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+    },
+    infoText: {
+        fontSize: 16,
+        color: '#2c3e50',
+        lineHeight: 24,
+    },
+    infoInput: {
+        height: 100,
+        textAlignVertical: 'top',
+    },
+    linkText: {
+        color: '#5c8ed6',
+        textDecorationLine: 'underline',
     },
 });
