@@ -45,6 +45,13 @@
             "BROWSABLE",
             "DEFAULT"
           ]
+        },
+        {
+          "action": "OPEN_HANGOUT_DETAILS",
+          "category": [
+            "DEFAULT"
+          ],
+          "targetActivity": ".MainActivity"
         }
       ]
     },

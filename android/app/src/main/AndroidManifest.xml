@@ -30,10 +30,15 @@
         <data android:scheme="com.alan101.chill"/>
         <data android:scheme="exp+chill"/>
       </intent-filter>
-      <intent-filter android:autoVerify="true" data-generated="true">
+      <intent-filter data-generated="true">
         <action android:name="android.intent.action.VIEW"/>
         <data android:scheme="chill"/>
+        <data android:scheme="exp+chill"/>
         <category android:name="android.intent.category.BROWSABLE"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>
+      <intent-filter data-generated="true">
+        <action android:name="android.intent.action.OPEN_HANGOUT_DETAILS"/>
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>
     </activity>
