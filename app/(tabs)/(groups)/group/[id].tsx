@@ -136,7 +136,8 @@ export default function GroupPage() {
             await getDatabase()
                 .ref(`/groups/${id}`)
                 .update({ icon: newIcon });
-            setIsEditingIcon(false);
+            // Update local state but don't close editing mode
+            setGroup(prev => prev ? { ...prev, icon: newIcon } : prev);
         } catch (error) {
             console.error('Error updating icon:', error);
         }
