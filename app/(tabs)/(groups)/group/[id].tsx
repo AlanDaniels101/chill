@@ -1,16 +1,17 @@
+import React from 'react';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect, useState, useMemo } from 'react'
 import { Text, View, StyleSheet, Pressable, Image, Alert, ScrollView, TextInput, Linking } from 'react-native'
 import { Group, Hangout, GroupIcon, User } from '../../../../types'
 import { useAuth } from '../../../../ctx'
 import { getDatabase } from '@react-native-firebase/database';
-import React from 'react';
 import HangoutCard from '../../../components/hangoutCard';
 import IconSelector from '../../../components/IconSelector';
 import { MaterialIcons } from '@expo/vector-icons';
 import AddMemberModal from '../../../components/AddMemberModal';
 import CreateHangoutModal from '../../../components/CreateHangoutModal';
 import NotificationToggle from '../../../components/NotificationToggle';
+import Linkify from 'react-native-linkify';
 
 function sortHangouts(hangouts: Hangout[]) {
     const now = new Date().getTime();
@@ -30,40 +31,6 @@ function sortHangouts(hangouts: Hangout[]) {
         // If one is future and one is past, future comes first
         return aIsFuture ? -1 : 1;
     });
-}
-
-// URL regex pattern
-const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
-
-// Function to split text into parts with URLs
-function parseTextWithUrls(text: string) {
-    const parts = [];
-    let lastIndex = 0;
-    let match;
-
-    while ((match = URL_PATTERN.exec(text)) !== null) {
-        // Add text before URL
-        if (match.index > lastIndex) {
-            parts.push({
-                type: 'text',
-                content: text.slice(lastIndex, match.index)
-            });
-        }
-        // Add URL
-        parts.push({
-            type: 'url',
-            content: match[0]
-        });
-        lastIndex = match.index + match[0].length;
-    }
-    // Add remaining text
-    if (lastIndex < text.length) {
-        parts.push({
-            type: 'text',
-            content: text.slice(lastIndex)
-        });
-    }
-    return parts;
 }
 
 export default function GroupPage() {
@@ -412,20 +379,13 @@ export default function GroupPage() {
                                 </Pressable>
                             )}
                         </View>
-                        <Text>
-                            {parseTextWithUrls(group.info).map((part, index) => (
-                                part.type === 'url' ? (
-                                    <Text
-                                        key={index}
-                                        style={styles.linkText}
-                                        onPress={() => Linking.openURL(part.content)}
-                                    >
-                                        {part.content}
-                                    </Text>
-                                ) : (
-                                    <Text key={index} style={styles.infoText}>{part.content}</Text>
-                                )
-                            ))}
+                        <Text style={styles.infoText}>
+                            <Linkify 
+                                linkStyle={styles.linkText}
+                                linkDefault={true}
+                            >
+                                {group.info}
+                            </Linkify>
                         </Text>
                     </View>
                 )}

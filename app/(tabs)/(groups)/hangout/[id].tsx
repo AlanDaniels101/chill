@@ -1,11 +1,12 @@
 import React from 'react';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Text, View, StyleSheet, Pressable, Alert, Share, ScrollView } from 'react-native';
+import { Text, View, StyleSheet, Pressable, Alert, Share, ScrollView, TextInput } from 'react-native';
 import { Hangout, Group, User } from '../../../../types';
 import { getDatabase } from '@react-native-firebase/database';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../../../ctx';
+import Linkify from 'react-native-linkify';
 
 export default function HangoutPage() {
     const navigation = useNavigation();
@@ -14,9 +15,11 @@ export default function HangoutPage() {
     const { userId } = useAuth();
 
     const [loadComplete, setLoadComplete] = useState(false);
-    const [hangout, setHangout] = useState<Hangout>();
-    const [group, setGroup] = useState<Group>();
+    const [hangout, setHangout] = useState<Hangout | null>(null);
+    const [group, setGroup] = useState<Group | null>(null);
     const [attendees, setAttendees] = useState<{ [key: string]: User }>({});
+    const [isEditingInfo, setIsEditingInfo] = useState(false);
+    const [tentativeInfo, setTentativeInfo] = useState('');
 
     const handleDecline = async () => {
         if (!hangout) return;
@@ -109,6 +112,20 @@ export default function HangoutPage() {
         }
     };
 
+    const handleUpdateInfo = async () => {
+        if (!id) return;
+        try {
+            await getDatabase()
+                .ref(`/hangouts/${id}/info`)
+                .set(tentativeInfo);
+            setHangout(prev => prev ? { ...prev, info: tentativeInfo } : null);
+            setIsEditingInfo(false);
+        } catch (error) {
+            console.error('Error updating info:', error);
+            Alert.alert('Error', 'Failed to update info. Please try again.');
+        }
+    };
+
     useEffect(() => {
         setLoadComplete(false);
         navigation.setOptions({
@@ -162,6 +179,84 @@ export default function HangoutPage() {
     const date = new Date(hangout?.time || 0);
     const isPast = date < new Date();
 
+    // Info section rendering
+    const renderInfoSection = () => {
+        if (isEditingInfo) {
+            return (
+                <View style={styles.infoSection}>
+                    <TextInput
+                        style={styles.infoInput}
+                        value={tentativeInfo}
+                        onChangeText={setTentativeInfo}
+                        multiline
+                        placeholder="Add details, links, or notes about this hangout..."
+                    />
+                    <View style={styles.infoEditButtons}>
+                        <Pressable
+                            style={[styles.infoButton, styles.cancelButton]}
+                            onPress={() => {
+                                setIsEditingInfo(false);
+                                setTentativeInfo(hangout?.info || '');
+                            }}
+                        >
+                            <Text style={styles.buttonText}>Cancel</Text>
+                        </Pressable>
+                        <Pressable
+                            style={[styles.infoButton, styles.saveButton]}
+                            onPress={handleUpdateInfo}
+                        >
+                            <Text style={styles.buttonText}>Save</Text>
+                        </Pressable>
+                    </View>
+                </View>
+            );
+        }
+
+        const info = hangout?.info;
+        if (!info) {
+            if (group?.members?.[userId]) {
+                return (
+                    <Pressable
+                        style={styles.addInfoButton}
+                        onPress={() => {
+                            setTentativeInfo('');
+                            setIsEditingInfo(true);
+                        }}
+                    >
+                        <Text style={styles.addInfoText}>Add Info</Text>
+                    </Pressable>
+                );
+            }
+            return null;
+        }
+
+        return (
+            <View style={styles.infoSection}>
+                <View style={styles.infoContent}>
+                    <Linkify 
+                        linkStyle={styles.link}
+                        linkDefault={true}
+                    >
+                        <Text style={styles.infoText}>
+                            {info}
+                        </Text>
+                    </Linkify>
+                </View>
+                {group?.members?.[userId] && (
+                    <Pressable
+                        style={styles.editButton}
+                        onPress={() => {
+                            setTentativeInfo(info);
+                            setIsEditingInfo(true);
+                        }}
+                    >
+                        <MaterialIcons name="edit" size={20} color="#666" />
+                    </Pressable>
+                )}
+            </View>
+        );
+    };
+
     return (
         <View style={styles.container}>
             <ScrollView 
@@ -209,7 +304,18 @@ export default function HangoutPage() {
                                 {Object.keys(attendees).length} / {hangout?.minAttendees || 2} - {hangout?.maxAttendees || 8} attendees
                             </Text>
                         </View>
+
+                        {hangout?.location && (
+                            <View style={styles.infoRow}>
+                                <MaterialIcons name="location-on" size={24} color="#666" />
+                                <Text style={styles.infoText}>
+                                    {hangout.location}
+                                </Text>
+                            </View>
+                        )}
                     </View>
+
+                    {renderInfoSection()}
 
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
@@ -323,10 +429,12 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     infoSection: {
-        backgroundColor: '#f5f5f5',
-        borderRadius: 12,
-        padding: 16,
-        gap: 16,
+        backgroundColor: '#fff',
+        padding: 15,
+        marginVertical: 10,
+        borderRadius: 8,
+        position: 'relative',
+        minHeight: 50,
     },
     infoRow: {
         flexDirection: 'row',
@@ -425,5 +533,60 @@ const styles = StyleSheet.create({
     },
     deleteButton: {
         padding: 8,
+    },
+    infoContent: {
+        paddingRight: 40,
+    },
+    infoInput: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 4,
+        padding: 10,
+        minHeight: 100,
+        textAlignVertical: 'top',
+    },
+    infoEditButtons: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        marginTop: 10,
+        gap: 10,
+    },
+    infoButton: {
+        paddingHorizontal: 20,
+        paddingVertical: 8,
+        borderRadius: 4,
+    },
+    cancelButton: {
+        backgroundColor: '#ddd',
+    },
+    saveButton: {
+        backgroundColor: '#4CAF50',
+    },
+    buttonText: {
+        color: '#fff',
+        fontWeight: '500',
+    },
+    editButton: {
+        position: 'absolute',
+        top: 0,
+        right: 15,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    addInfoButton: {
+        backgroundColor: '#f5f5f5',
+        padding: 15,
+        marginVertical: 10,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    addInfoText: {
+        color: '#666',
+        fontWeight: '500',
+    },
+    link: {
+        color: '#2196F3',
+        textDecorationLine: 'underline',
     },
 }); 

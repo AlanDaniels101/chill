@@ -11,7 +11,8 @@ export type Hangout = {
     createdBy?: string;
     createdAnonymously?: boolean;
     location?: string;
-}
+    info?: string;  // For additional details, links, etc.
+};
 
 export type GroupIcon = {
   type: 'material' | 'image';
