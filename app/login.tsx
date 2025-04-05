@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, View, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { useAuth } from '../ctx';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 
 export default function Login() {
   const { signIn, isLoading } = useAuth();
@@ -31,6 +31,13 @@ export default function Login() {
           >
             <MaterialIcons name="login" size={24} color="#7dacf9" style={styles.buttonIcon} />
             <Text style={styles.loginText}>Log In with Phone</Text>
+          </Pressable>
+
+          <Pressable 
+            style={styles.signupLink}
+            onPress={() => router.push('/signup')}
+          >
+            <Text style={styles.signupLinkText}>New here? Sign up</Text>
           </Pressable>
         </View>
       </View>
@@ -85,5 +92,13 @@ const styles = StyleSheet.create({
   buttonIcon: {
     marginRight: 4,
     color: '#7dacf9',
+  },
+  signupLink: {
+    marginTop: 32,
+  },
+  signupLinkText: {
+    color: '#ffffff',
+    fontSize: 16,
+    textDecorationLine: 'underline',
   }
 });

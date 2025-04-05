@@ -52,6 +52,7 @@ const checkNotificationPermission = async () => {
 const AuthContext = createContext(
   {
     signIn: async () => {},
+    signUp: async () => {},
     signOut: async () => {},
     userId: '',
     isLoading: true,
@@ -73,6 +74,29 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         await result.confirm('123321')
       } catch (e) {
         console.log(e)
+      }
+    }
+
+    const signUp = async () => {
+      try {
+        setIsLoading(true)
+        const result = await getAuth().signInWithPhoneNumber('+16505554948')
+        await result.confirm('123321')
+        // After successful signup, create a user profile in the database
+        const user = getAuth().currentUser
+        if (user) {
+          await getDatabase()
+            .ref(`/users/${user.uid}`)
+            .set({
+              phoneNumber: user.phoneNumber,
+              createdAt: new Date().toISOString(),
+              lastActive: new Date().toISOString(),
+            })
+        }
+      } catch (e) {
+        console.log(e)
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -263,6 +287,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       <AuthContext.Provider
         value={{
           signIn,
+          signUp,
           signOut,
           userId,
           isLoading,
