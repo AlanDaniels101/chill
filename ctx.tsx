@@ -7,6 +7,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { getAuth } from '@react-native-firebase/auth'
 import { getDatabase } from '@react-native-firebase/database';
 import { getMessaging, AuthorizationStatus } from '@react-native-firebase/messaging';
+import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 
 const requestNotificationPermission = async () => {
   try {
@@ -51,8 +52,8 @@ const checkNotificationPermission = async () => {
 
 const AuthContext = createContext(
   {
-    signIn: async () => {},
-    signUp: async () => {},
+    verifyPhoneNumber: async (phoneNumber: string) => Promise.resolve<FirebaseAuthTypes.ConfirmationResult | null>(null),
+    confirmVerificationCode: async (confirmationResult: any, code: string) => {},
     signOut: async () => {},
     userId: '',
     isLoading: true,
@@ -67,31 +68,43 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     const [isLoading, setIsLoading] = useState(true)
     const [notificationsEnabled, setNotificationsEnabled] = useState(false)
 
-    const signIn = async () => {
+    const verifyPhoneNumber = async (phoneNumber: string) => {
       try {
         setIsLoading(true)
-        const result = await getAuth().signInWithPhoneNumber('+16505554948')
-        await result.confirm('123321')
+        const result = await getAuth().signInWithPhoneNumber(phoneNumber)
+        return result
       } catch (e) {
         console.log(e)
+        return null
+      } finally {
+        setIsLoading(false)
       }
     }
 
-    const signUp = async () => {
+    const confirmVerificationCode = async (confirmationResult: any, code: string) => {
       try {
         setIsLoading(true)
-        const result = await getAuth().signInWithPhoneNumber('+16505554948')
-        await result.confirm('123321')
-        // After successful signup, create a user profile in the database
+        await confirmationResult.confirm(code)
         const user = getAuth().currentUser
         if (user) {
-          await getDatabase()
-            .ref(`/users/${user.uid}`)
-            .set({
+          const db = getDatabase();
+          const userRef = db.ref('users').child(user.uid);
+          
+          // Check if user already exists
+          const snapshot = await userRef.once('value');
+          if (!snapshot.exists()) {
+            // Only create new profile if user doesn't exist
+            await userRef.set({
               phoneNumber: user.phoneNumber,
               createdAt: new Date().toISOString(),
               lastActive: new Date().toISOString(),
-            })
+            });
+          } else {
+            // Update lastActive for existing user
+            await userRef.update({
+              lastActive: new Date().toISOString()
+            });
+          }
         }
       } catch (e) {
         console.log(e)
@@ -286,8 +299,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     return (
       <AuthContext.Provider
         value={{
-          signIn,
-          signUp,
+          verifyPhoneNumber,
+          confirmVerificationCode,
           signOut,
           userId,
           isLoading,

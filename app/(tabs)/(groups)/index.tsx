@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, Pressable, ScrollView } from 'react-native';
 
 import { getDatabase } from '@react-native-firebase/database';
 import { useEffect, useState } from 'react';
+import { useAuth } from '../../../ctx';
 
 import { Group } from '../../../types'
 
@@ -16,35 +17,58 @@ type FirebaseGroups = {
 type FirebaseGroup = Omit<Group, 'id'>
 
 export default function Index() {
-  const [groups, setGroups] = useState<Group[]>()
+  const [groups, setGroups] = useState<Group[]>([])
   const [modalVisible, setModalVisible] = useState(false);
+  const { userId } = useAuth();
 
   useEffect(() => {
-    const groupsRef = getDatabase().ref('/groups');
+    if (!userId) {
+      setGroups([]);
+      return;
+    }
 
-    // Set up realtime listener
-    const onGroupsChange = (snapshot: any) => {
-      const val = snapshot.val() as FirebaseGroups;
-      if (!val) {
+    const db = getDatabase();
+    const userGroupsRef = db.ref('users').child(userId).child('groups');
+
+    // Set up realtime listener for user's groups
+    const onUserGroupsChange = (snapshot: any) => {
+      const userGroups = snapshot.val();
+      if (!userGroups) {
         setGroups([]);
         return;
       }
+
+      // Get all group IDs the user belongs to
+      const groupIds = Object.keys(userGroups);
       
-      const groups = Object.entries(val).map(([id, group]): Group => ({
-        id,
-        ...group
-      }));
-      setGroups(groups);
+      // Fetch full group information for each group
+      const groupPromises = groupIds.map(async (groupId) => {
+        const groupSnapshot = await db.ref('groups').child(groupId).once('value');
+        const groupData = groupSnapshot.val();
+        if (groupData) {
+          return {
+            id: groupId,
+            ...groupData
+          } as Group;
+        }
+        return null;
+      });
+
+      // Wait for all group data to be fetched
+      Promise.all(groupPromises).then((groups) => {
+        // Filter out any null groups and set the state
+        setGroups(groups.filter((group): group is Group => group !== null));
+      });
     };
 
     // Subscribe to changes
-    groupsRef.on('value', onGroupsChange);
+    userGroupsRef.on('value', onUserGroupsChange);
 
     // Cleanup listener when component unmounts
     return () => {
-      groupsRef.off('value', onGroupsChange);
+      userGroupsRef.off('value', onUserGroupsChange);
     };
-  }, []); // Empty dependency array since we want this to run once on mount
+  }, [userId]);
 
   return (
     <View style={styles.container}>
@@ -56,7 +80,7 @@ export default function Index() {
       </Pressable>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.groupList}>
-        {groups?.map(group => (
+        {groups.map(group => (
           <View key={group.id} style={styles.groupItem}>
             <GroupPanel group={group} />
           </View>

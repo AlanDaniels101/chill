@@ -1,11 +1,54 @@
-import React from 'react';
-import { Text, View, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { Text, View, StyleSheet, Pressable, ActivityIndicator, TextInput } from 'react-native';
 import { useAuth } from '../ctx';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Stack, router } from 'expo-router';
+import { Stack } from 'expo-router';
+import { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import PhoneInput from 'react-native-phone-number-input';
+
+const PhoneInputWrapper = React.forwardRef((props: any, ref) => {
+  const originalConsoleError = console.error;
+  console.error = (...args) => {
+    if (args[0]?.includes('defaultProps')) {
+      return;
+    }
+    originalConsoleError(...args);
+  };
+
+  return <PhoneInput {...props} ref={ref} />;
+});
 
 export default function Login() {
-  const { signIn, isLoading } = useAuth();
+  const { verifyPhoneNumber, confirmVerificationCode, isLoading } = useAuth();
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [formattedPhoneNumber, setFormattedPhoneNumber] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState<FirebaseAuthTypes.ConfirmationResult | null>(null);
+  const [step, setStep] = useState<'phone' | 'code'>('phone');
+  const phoneInput = useRef<PhoneInput>(null);
+
+  const handlePhoneSubmit = async () => {
+    // Testing in emulator, just verify the code
+    const result = await verifyPhoneNumber('+16505554948')
+    if (result) {
+      setConfirmationResult(result);
+      setStep('code');
+    }
+    // await confirmVerificationCode(result, '123321')
+    // if (phoneNumber) {
+    //   const result = await verifyPhoneNumber(formattedPhoneNumber);
+    //   if (result) {
+    //     setConfirmationResult(result);
+    //     setStep('code');
+    //   }
+    // }
+  };
+
+  const handleCodeSubmit = async () => {
+    if (confirmationResult && verificationCode) {
+      await confirmVerificationCode(confirmationResult, verificationCode);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -25,20 +68,59 @@ export default function Login() {
           <Text style={styles.title}>Chill</Text>
           <Text style={styles.subtitle}>Sustain meaningful connections</Text>
           
-          <Pressable 
-            style={styles.loginButton}
-            onPress={signIn}
-          >
-            <MaterialIcons name="login" size={24} color="#7dacf9" style={styles.buttonIcon} />
-            <Text style={styles.loginText}>Log In with Phone</Text>
-          </Pressable>
-
-          <Pressable 
-            style={styles.signupLink}
-            onPress={() => router.push('/signup')}
-          >
-            <Text style={styles.signupLinkText}>New here? Sign up</Text>
-          </Pressable>
+          {step === 'phone' ? (
+            <>
+              <View style={styles.phoneInputContainer}>
+                <PhoneInputWrapper
+                  ref={phoneInput}
+                  defaultValue={phoneNumber}
+                  defaultCode="CA"
+                  onChangeText={(text: string) => {
+                    setPhoneNumber(text);
+                  }}
+                  onChangeFormattedText={(text: string) => {
+                    setFormattedPhoneNumber(text);
+                  }}
+                  withDarkTheme
+                  withShadow
+                  containerStyle={styles.phoneInput}
+                  textContainerStyle={styles.phoneInputTextContainer}
+                  textInputStyle={styles.phoneInputText}
+                  codeTextStyle={styles.phoneInputCodeText}
+                />
+              </View>
+              
+              <Pressable 
+                style={[styles.button, !phoneNumber && styles.disabledButton]}
+                onPress={handlePhoneSubmit}
+                disabled={!phoneNumber}
+              >
+                <MaterialIcons name="login" size={24} color="#7dacf9" style={styles.buttonIcon} />
+                <Text style={styles.buttonText}>Continue with Phone</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter verification code"
+                placeholderTextColor="#ffffff80"
+                value={verificationCode}
+                onChangeText={setVerificationCode}
+                keyboardType="number-pad"
+                autoCapitalize="none"
+              />
+              
+              <Pressable 
+                style={[styles.button, !verificationCode && styles.disabledButton]}
+                onPress={handleCodeSubmit}
+                disabled={!verificationCode}
+              >
+                <MaterialIcons name="check" size={24} color="#7dacf9" style={styles.buttonIcon} />
+                <Text style={styles.buttonText}>Verify Code</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       </View>
     </>
@@ -70,9 +152,39 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 18,
     color: '#ffffff',
-    marginBottom: 48,
+    marginBottom: 24,
   },
-  loginButton: {
+  phoneInputContainer: {
+    width: '80%',
+    maxWidth: 300,
+    marginBottom: 24,
+  },
+  phoneInput: {
+    backgroundColor: '#ffffff20',
+    borderRadius: 12,
+    width: '100%',
+  },
+  phoneInputTextContainer: {
+    backgroundColor: 'transparent',
+  },
+  phoneInputText: {
+    color: '#ffffff',
+    fontSize: 16,
+  },
+  phoneInputCodeText: {
+    color: '#ffffff',
+  },
+  input: {
+    backgroundColor: '#ffffff20',
+    width: '80%',
+    maxWidth: 300,
+    padding: 16,
+    borderRadius: 12,
+    color: '#ffffff',
+    fontSize: 16,
+    marginBottom: 24,
+  },
+  button: {
     backgroundColor: '#ffffff',
     flexDirection: 'row',
     alignItems: 'center',
@@ -83,7 +195,10 @@ const styles = StyleSheet.create({
     width: '80%',
     maxWidth: 300,
   },
-  loginText: {
+  disabledButton: {
+    opacity: 0.5,
+  },
+  buttonText: {
     color: '#7dacf9',
     fontSize: 18,
     fontWeight: '600',
@@ -92,13 +207,5 @@ const styles = StyleSheet.create({
   buttonIcon: {
     marginRight: 4,
     color: '#7dacf9',
-  },
-  signupLink: {
-    marginTop: 32,
-  },
-  signupLinkText: {
-    color: '#ffffff',
-    fontSize: 16,
-    textDecorationLine: 'underline',
   }
 });
