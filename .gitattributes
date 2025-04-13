@@ -1,0 +1,3 @@
+gradlew test eol=lf
+gradlew export-ignore
+gradlew merge=union

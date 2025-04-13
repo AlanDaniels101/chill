@@ -61,35 +61,64 @@ export default function GroupPage() {
 
         // Set up realtime listener for group and user data
         const onGroupUpdate = async (snapshot: any) => {
-            const val = snapshot.val();
-            const group = { id, ...val } as Group;
-            
-            // Get hangouts
-            const hangoutIds = Object.keys(group.hangouts || {});
-            const promises = hangoutIds.map(id => getDatabase().ref(`/hangouts/${id}`).once('value'));
-            const hangoutSnapshots = await Promise.all(promises);
-            const hangouts = hangoutSnapshots.map(snap => ({id: snap.key, ...snap.val() } as Hangout));
-            
-            // Get all users who are members or admins
-            const userIds = new Set([
-                ...Object.keys(group.members || {}),
-                ...Object.keys(group.admins || {})
-            ]);
-            
-            const userPromises = Array.from(userIds).map(uid => 
-                usersRef.child(uid).once('value')
-            );
-            const userSnapshots = await Promise.all(userPromises);
-            const users = Object.fromEntries(
-                userSnapshots.map(snap => [snap.key, { id: snap.key, ...snap.val() }])
-            );
+            try {
+                const val = snapshot.val();
+                if (!val) {
+                    // Group doesn't exist or we don't have permission to read it
+                    router.replace('/(tabs)/(groups)');
+                    return;
+                }
+                
+                const group = { id, ...val } as Group;
+                
+                // Get hangouts
+                const hangoutIds = Object.keys(group.hangouts || {});
+                const promises = hangoutIds.map(id => getDatabase().ref(`/hangouts/${id}`).once('value'));
+                const hangoutSnapshots = await Promise.all(promises);
+                const hangouts = hangoutSnapshots.map(snap => ({id: snap.key, ...snap.val() } as Hangout));
+                
+                // Get all users who are members or admins
+                const userIds = new Set([
+                    ...Object.keys(group.members || {}),
+                    ...Object.keys(group.admins || {})
+                ]);
+                
+                // Only fetch names for users
+                const userPromises = Array.from(userIds).map(async uid => {
+                    try {
+                        const nameSnapshot = await usersRef.child(uid).child('name').once('value');
+                        return {
+                            id: uid,
+                            name: nameSnapshot.val() || 'Unknown User'
+                        };
+                    } catch (error) {
+                        console.error(`Error fetching name for user ${uid}:`, error);
+                        return {
+                            id: uid,
+                            name: 'Unknown User'
+                        };
+                    }
+                });
+                
+                const users = Object.fromEntries(
+                    (await Promise.all(userPromises)).map(user => [user.id, user])
+                );
 
-            setGroup(group);
-            setHangouts(hangouts);
-            setUsers(users);
-            setLoadComplete(true);
-            // Update navigation title with group name from database
-            navigation.setOptions({ title: group.name });
+                setGroup(group);
+                setHangouts(hangouts);
+                setUsers(users);
+                setLoadComplete(true);
+                // Update navigation title with group name from database
+                navigation.setOptions({ title: group.name });
+            } catch (error: any) {
+                if (error.code === 'PERMISSION_DENIED') {
+                    // Redirect to groups page for permission errors
+                    router.replace('/(tabs)/(groups)');
+                } else {
+                    // For other errors, show error state
+                    setLoadComplete(true);
+                }
+            }
         };
 
         // Subscribe to changes
@@ -180,12 +209,12 @@ export default function GroupPage() {
         if (!group?.id || !newMemberUid.trim()) return;
         
         try {
-            // Check if user exists
-            const userSnapshot = await getDatabase()
-                .ref(`/users/${newMemberUid}`)
+            // Check if user exists by trying to read their name
+            const nameSnapshot = await getDatabase()
+                .ref(`/users/${newMemberUid}/name`)
                 .once('value');
             
-            if (!userSnapshot.exists()) {
+            if (!nameSnapshot.exists()) {
                 Alert.alert('Error', 'User not found');
                 return;
             }
@@ -233,15 +262,18 @@ export default function GroupPage() {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            // Remove user from members and admins
-                            const updates: { [key: string]: any } = {};
-                            updates[`/groups/${group.id}/members/${userId}`] = null;
-                            updates[`/groups/${group.id}/admins/${userId}`] = null;
+                            // Remove user from members
+                            const membersRef = getDatabase().ref(`/groups/${group.id}/members/${userId}`);
+                            await membersRef.remove();
                             
-                            await getDatabase().ref().update(updates);
-                            router.replace('/');
+                            // Only remove from admins if they are an admin
+                            if (group.admins?.[userId]) {
+                                const adminsRef = getDatabase().ref(`/groups/${group.id}/admins/${userId}`);
+                                await adminsRef.remove();
+                            }
+                            
+                            router.replace('/(tabs)/(groups)');
                         } catch (error) {
-                            console.error('Error leaving group:', error);
                             Alert.alert('Error', 'Failed to leave the group');
                         }
                     }

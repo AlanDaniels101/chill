@@ -14,7 +14,7 @@ import {initializeApp} from "firebase-admin/app";
 // import {getAuth} from "firebase-admin/auth";
 import {getDatabase} from "firebase-admin/database";
 import {getMessaging} from "firebase-admin/messaging";
-import {onValueCreated, onValueUpdated} from "firebase-functions/v2/database";
+import {onValueCreated, onValueDeleted} from "firebase-functions/v2/database";
 import {FirebaseError} from "firebase-admin";
 
 initializeApp();
@@ -163,27 +163,20 @@ export const notifyGroupSubscribers = onValueCreated(
     }
 );
 
-export const handleGroupMembershipChange = onValueUpdated(
+export const handleGroupMembershipChange = onValueDeleted(
     "groups/{groupId}/members/{userId}",
     async (event) => {
         const groupId = event.params.groupId;
         const userId = event.params.userId;
-        const beforeData = event.data.before.val();
-        const afterData = event.data.after.val();
 
-        logger.info(`Group membership change detected - Group: ${groupId}, User: ${userId}`);
-
-        // If the user was removed from the group
-        if (beforeData && !afterData) {
-            logger.info(`User ${userId} was removed from group ${groupId}`);
+        logger.info(`Group membership deleted - Group: ${groupId}, User: ${userId}`);
             
-            try {
-                // Remove the group from user's groups list
-                await database.ref(`users/${userId}/groups/${groupId}`).remove();
-                logger.info(`Removed group ${groupId} from user ${userId}'s groups list`);
-            } catch (error) {
-                logger.error("Error removing group from user's list: ", error);
-            }
+        try {
+            // Remove the group from user's groups list
+            await database.ref(`users/${userId}/groups/${groupId}`).remove();
+            logger.info(`Removed group ${groupId} from user ${userId}'s groups list`);
+        } catch (error) {
+            logger.error("Error removing group from user's list: ", error);
         }
     }
 );

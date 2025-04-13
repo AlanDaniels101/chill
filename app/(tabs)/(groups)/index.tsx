@@ -80,11 +80,15 @@ export default function Index() {
       </Pressable>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.groupList}>
-        {groups.map(group => (
-          <View key={group.id} style={styles.groupItem}>
-            <GroupPanel group={group} />
-          </View>
-        ))}
+        {groups.length === 0 ? (
+          <Text style={styles.emptyText}>No groups yet. Create one to get started!</Text>
+        ) : (
+          groups.map(group => (
+            <View key={group.id} style={styles.groupItem}>
+              <GroupPanel group={group} />
+            </View>
+          ))
+        )}
       </ScrollView>
 
       <CreateGroupModal 
@@ -126,6 +130,7 @@ const styles = StyleSheet.create({
   },
   groupList: {
     gap: 16,
+    paddingBottom: 16,
   },
   groupItem: {
     backgroundColor: '#fff',
@@ -139,5 +144,13 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
     minHeight: 100,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  emptyText: {
+    color: '#fff',
+    fontSize: 18,
+    textAlign: 'center',
+    marginTop: 32,
   },
 });

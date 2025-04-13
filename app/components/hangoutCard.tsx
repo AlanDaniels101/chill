@@ -56,6 +56,22 @@ export default function HangoutCard({ hangout }: Props) {
                         ? formatDistanceToNow(date, { addSuffix: true })
                         : format(date, 'PPp')}
                 </Text>
+                {hangout.location && (
+                    <View style={styles.locationContainer}>
+                        <MaterialIcons 
+                            name="location-on" 
+                            size={14} 
+                            color={isPast ? '#888' : '#666'} 
+                            style={styles.locationIcon} 
+                        />
+                        <Text style={[
+                            styles.location,
+                            isPast && { color: '#888' }
+                        ]}>
+                            {hangout.location}
+                        </Text>
+                    </View>
+                )}
             </View>
         </Pressable>
     );
@@ -65,7 +81,8 @@ const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
         backgroundColor: '#fff',
         borderRadius: 16,
         marginBottom: 12,
@@ -109,6 +126,8 @@ const styles = StyleSheet.create({
     },
     info: {
         flex: 1,
+        minHeight: 60,
+        justifyContent: 'center',
     },
     name: {
         fontSize: 18,
@@ -119,5 +138,17 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#333',
         marginTop: 4,
+    },
+    locationContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    locationIcon: {
+        marginRight: 4,
+    },
+    location: {
+        fontSize: 12,
+        color: '#666',
     },
 }); 

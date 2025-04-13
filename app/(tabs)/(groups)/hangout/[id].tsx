@@ -1,7 +1,7 @@
 import React from 'react';
-import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Text, View, StyleSheet, Pressable, Alert, Share, ScrollView, TextInput } from 'react-native';
+import { Text, View, StyleSheet, Pressable, Alert, Share, ScrollView, TextInput, Image } from 'react-native';
 import { Hangout, Group, User } from '../../../../types';
 import { getDatabase } from '@react-native-firebase/database';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import Linkify from 'react-native-linkify';
 
 export default function HangoutPage() {
     const navigation = useNavigation();
+    const router = useRouter();
     const local = useLocalSearchParams();
     const { id, name } = local;
     const { userId } = useAuth();
@@ -85,7 +86,7 @@ export default function HangoutPage() {
                             }
                             // Then remove the hangout itself
                             await getDatabase().ref(`/hangouts/${id}`).remove();
-                            navigation.goBack();
+                            router.replace('/(tabs)/(groups)');
                         } catch (error) {
                             Alert.alert("Error", "Failed to delete the hangout. Please try again.");
                         }
@@ -136,35 +137,65 @@ export default function HangoutPage() {
         const hangoutRef = getDatabase().ref(`/hangouts/${id}`);
         
         const onHangoutUpdate = async (snapshot: any) => {
-            const hangoutData = snapshot.val();
-            if (!hangoutData) return;
+            try {
+                const hangoutData = snapshot.val();
+                if (!hangoutData) {
+                    // Hangout doesn't exist or we don't have permission to read it
+                    router.replace('/(tabs)/(groups)');
+                    return;
+                }
 
-            const hangout = { id, ...hangoutData } as Hangout;
-            setHangout(hangout);
+                const hangout = { id, ...hangoutData } as Hangout;
+                setHangout(hangout);
 
-            // Get group data
-            const groupSnapshot = await getDatabase()
-                .ref(`/groups/${hangout.group}`)
-                .once('value');
-            const groupData = groupSnapshot.val();
-            if (groupData) {
+                // Get group data
+                const groupSnapshot = await getDatabase()
+                    .ref(`/groups/${hangout.group}`)
+                    .once('value');
+                const groupData = groupSnapshot.val();
+                if (!groupData) {
+                    // Group doesn't exist or we don't have permission to read it
+                    router.replace('/(tabs)/(groups)');
+                    return;
+                }
                 setGroup({ id: hangout.group, ...groupData });
-            }
 
-            // Get attendees data
-            if (hangout.attendees) {
-                const attendeeIds = Object.keys(hangout.attendees);
-                const attendeePromises = attendeeIds.map(uid => 
-                    getDatabase().ref(`/users/${uid}`).once('value')
-                );
-                const attendeeSnapshots = await Promise.all(attendeePromises);
-                const attendeeData = Object.fromEntries(
-                    attendeeSnapshots.map(snap => [snap.key, { id: snap.key, ...snap.val() }])
-                );
-                setAttendees(attendeeData);
-            }
+                // Get attendees data
+                if (hangout.attendees) {
+                    const attendeeIds = Object.keys(hangout.attendees);
+                    const attendeePromises = attendeeIds.map(async uid => {
+                        try {
+                            const nameSnapshot = await getDatabase()
+                                .ref(`/users/${uid}/name`)
+                                .once('value');
+                            return {
+                                id: uid,
+                                name: nameSnapshot.val() || 'Unknown User'
+                            };
+                        } catch (error) {
+                            console.error(`Error fetching name for attendee ${uid}:`, error);
+                            return {
+                                id: uid,
+                                name: 'Unknown User'
+                            };
+                        }
+                    });
+                    const attendeeData = Object.fromEntries(
+                        (await Promise.all(attendeePromises)).map(user => [user.id, user])
+                    );
+                    setAttendees(attendeeData);
+                }
 
-            setLoadComplete(true);
+                setLoadComplete(true);
+            } catch (error: any) {
+                if (error.code === 'PERMISSION_DENIED') {
+                    // Redirect to groups page for permission errors
+                    router.replace('/(tabs)/(groups)');
+                } else {
+                    // For other errors, show error state
+                    setLoadComplete(true);
+                }
+            }
         };
 
         hangoutRef.on('value', onHangoutUpdate);
@@ -292,7 +323,20 @@ export default function HangoutPage() {
                         </View>
 
                         <View style={styles.infoRow}>
-                            <MaterialIcons name="group" size={24} color="#666" />
+                            {group?.icon?.type === 'material' ? (
+                                <MaterialIcons 
+                                    name={group.icon.value as any} 
+                                    size={24} 
+                                    color="#666" 
+                                />
+                            ) : group?.icon?.type === 'image' ? (
+                                <Image 
+                                    source={{ uri: group.icon.value }}
+                                    style={styles.groupIconImage}
+                                />
+                            ) : (
+                                <MaterialIcons name="group" size={24} color="#666" />
+                            )}
                             <Text style={styles.infoText}>
                                 {group?.name || 'Loading...'}
                             </Text>
@@ -588,5 +632,10 @@ const styles = StyleSheet.create({
     link: {
         color: '#2196F3',
         textDecorationLine: 'underline',
+    },
+    groupIconImage: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
     },
 }); 
