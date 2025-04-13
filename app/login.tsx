@@ -28,20 +28,13 @@ export default function Login() {
   const phoneInput = useRef<PhoneInput>(null);
 
   const handlePhoneSubmit = async () => {
-    // Testing in emulator, just verify the code
-    const result = await verifyPhoneNumber('+16505554948')
-    if (result) {
-      setConfirmationResult(result);
-      setStep('code');
+    if (phoneNumber) {
+      const result = await verifyPhoneNumber(formattedPhoneNumber);
+      if (result) {
+        setConfirmationResult(result);
+        setStep('code');
+      }
     }
-    // await confirmVerificationCode(result, '123321')
-    // if (phoneNumber) {
-    //   const result = await verifyPhoneNumber(formattedPhoneNumber);
-    //   if (result) {
-    //     setConfirmationResult(result);
-    //     setStep('code');
-    //   }
-    // }
   };
 
   const handleCodeSubmit = async () => {
