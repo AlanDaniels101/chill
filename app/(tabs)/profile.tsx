@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert, TextInput } from 'react-native';
 import { useAuth } from '../../ctx';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
@@ -10,6 +10,8 @@ import QRCode from 'react-native-qrcode-svg';
 export default function ProfilePage() {
     const { userId, signOut } = useAuth();
     const [user, setUser] = useState<User>();
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [tentativeName, setTentativeName] = useState('');
 
     useEffect(() => {
         if (!userId) return;
@@ -37,6 +39,20 @@ export default function ProfilePage() {
         }
     };
 
+    const handleUpdateName = async () => {
+        if (!userId || !tentativeName.trim()) return;
+        
+        try {
+            await getDatabase()
+                .ref(`/users/${userId}/name`)
+                .set(tentativeName.trim());
+            setIsEditingName(false);
+        } catch (error) {
+            console.error('Error updating name:', error);
+            Alert.alert('Error', 'Failed to update name');
+        }
+    };
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -45,7 +61,48 @@ export default function ProfilePage() {
                     size={80} 
                     color="#2c3e50" 
                 />
-                <Text style={styles.name}>{user?.name || 'Loading...'}</Text>
+                {isEditingName ? (
+                    <View style={styles.nameEditContainer}>
+                        <TextInput
+                            style={styles.nameInput}
+                            value={tentativeName}
+                            onChangeText={setTentativeName}
+                            placeholder="Enter your name"
+                            placeholderTextColor="#666"
+                            autoFocus
+                        />
+                        <View style={styles.nameEditButtons}>
+                            <Pressable
+                                style={[styles.nameEditButton, styles.cancelButton]}
+                                onPress={() => {
+                                    setIsEditingName(false);
+                                    setTentativeName(user?.name || '');
+                                }}
+                            >
+                                <Text style={styles.nameEditButtonText}>Cancel</Text>
+                            </Pressable>
+                            <Pressable
+                                style={[styles.nameEditButton, styles.saveButton]}
+                                onPress={handleUpdateName}
+                            >
+                                <Text style={styles.nameEditButtonText}>Save</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                ) : (
+                    <View style={styles.nameContainer}>
+                        <Text style={styles.name}>{user?.name || 'Loading...'}</Text>
+                        <Pressable
+                            style={styles.editButton}
+                            onPress={() => {
+                                setTentativeName(user?.name || '');
+                                setIsEditingName(true);
+                            }}
+                        >
+                            <MaterialIcons name="edit" size={20} color="#5c8ed6" />
+                        </Pressable>
+                    </View>
+                )}
             </View>
 
             <View style={styles.uidSection}>
@@ -90,11 +147,53 @@ const styles = StyleSheet.create({
         marginTop: 40,
         marginBottom: 30,
     },
+    nameContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 12,
+        gap: 8,
+    },
     name: {
         fontSize: 24,
         fontWeight: 'bold',
         color: '#2c3e50',
+    },
+    editButton: {
+        padding: 4,
+    },
+    nameEditContainer: {
         marginTop: 12,
+        alignItems: 'center',
+        gap: 8,
+    },
+    nameInput: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#2c3e50',
+        borderBottomWidth: 1,
+        borderBottomColor: '#5c8ed6',
+        padding: 4,
+        textAlign: 'center',
+        minWidth: 200,
+    },
+    nameEditButtons: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    nameEditButton: {
+        paddingVertical: 4,
+        paddingHorizontal: 12,
+        borderRadius: 4,
+    },
+    cancelButton: {
+        backgroundColor: '#f5f5f5',
+    },
+    saveButton: {
+        backgroundColor: '#5c8ed6',
+    },
+    nameEditButtonText: {
+        fontSize: 14,
+        fontWeight: '500',
     },
     logoutButton: {
         backgroundColor: '#ff4444',

@@ -99,6 +99,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
               createdAt: new Date().toISOString(),
               lastActive: new Date().toISOString(),
             });
+            // Redirect new users to profile page
+            router.replace('/(tabs)/profile');
           } else {
             // Update lastActive for existing user
             await userRef.update({
