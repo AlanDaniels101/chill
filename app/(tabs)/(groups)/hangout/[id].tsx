@@ -86,7 +86,7 @@ export default function HangoutPage() {
                             }
                             // Then remove the hangout itself
                             await getDatabase().ref(`/hangouts/${id}`).remove();
-                            router.replace('/(tabs)/(groups)');
+                            router.back();
                         } catch (error) {
                             Alert.alert("Error", "Failed to delete the hangout. Please try again.");
                         }

@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Pressable, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 
 import { getDatabase } from '@react-native-firebase/database';
 import { useEffect, useState } from 'react';
@@ -19,11 +19,13 @@ type FirebaseGroup = Omit<Group, 'id'>
 export default function Index() {
   const [groups, setGroups] = useState<Group[]>([])
   const [modalVisible, setModalVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { userId } = useAuth();
 
   useEffect(() => {
     if (!userId) {
       setGroups([]);
+      setIsLoading(false);
       return;
     }
 
@@ -35,6 +37,7 @@ export default function Index() {
       const userGroups = snapshot.val();
       if (!userGroups) {
         setGroups([]);
+        setIsLoading(false);
         return;
       }
 
@@ -58,6 +61,7 @@ export default function Index() {
       Promise.all(groupPromises).then((groups) => {
         // Filter out any null groups and set the state
         setGroups(groups.filter((group): group is Group => group !== null));
+        setIsLoading(false);
       });
     };
 
@@ -80,7 +84,11 @@ export default function Index() {
       </Pressable>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.groupList}>
-        {groups.length === 0 ? (
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#5c8ed6" />
+          </View>
+        ) : groups.length === 0 ? (
           <Text style={styles.emptyText}>No groups yet. Create one to get started!</Text>
         ) : (
           groups.map(group => (
@@ -152,5 +160,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
     marginTop: 32,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
 });

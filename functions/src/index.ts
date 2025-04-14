@@ -9,6 +9,7 @@
 
 // import {onRequest} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
+import {formatDistanceToNow} from "date-fns";
 
 import {initializeApp} from "firebase-admin/app";
 // import {getAuth} from "firebase-admin/auth";
@@ -89,7 +90,7 @@ export const notifyGroupSubscribers = onValueCreated(
 
         // Get the hangout details
         const hangoutName = hangout?.name || "New hangout";
-        const hangoutTime = hangout?.time ? `on ${new Date(hangout.time).toLocaleString()}` : "soon";
+        const hangoutDistance = hangout?.time ? `in ${formatDistanceToNow(hangout.time, {addSuffix: true})}` : "soon";
 
         // Get the group name
         const groupSnapshot = await database.ref(`groups/${groupId}`).once("value");
@@ -99,14 +100,14 @@ export const notifyGroupSubscribers = onValueCreated(
         const message = {
             notification: {
                 title: `New Hangout ${groupName ? `in ${groupName}` : ""}!`,
-                body: `"${hangoutName}" is happening ${hangoutTime}`,
+                body: `"${hangoutName}" is happening ${hangoutDistance}`,
             },
             data: {
                 groupId: groupId,
                 hangoutId: hangoutId,
                 type: "new_hangout",
                 title: `New Hangout in ${groupName}`,
-                body: `"${hangoutName}" is happening ${hangoutTime}`,
+                body: `"${hangoutName}" is happening ${hangoutDistance}`,
                 click_action: "OPEN_HANGOUT_DETAILS",
             },
             // Android specific configuration
@@ -163,7 +164,7 @@ export const notifyGroupSubscribers = onValueCreated(
     }
 );
 
-export const handleGroupMembershipChange = onValueDeleted(
+export const handleGroupMembershipDeleted = onValueDeleted(
     "groups/{groupId}/members/{userId}",
     async (event) => {
         const groupId = event.params.groupId;
@@ -177,6 +178,35 @@ export const handleGroupMembershipChange = onValueDeleted(
             logger.info(`Removed group ${groupId} from user ${userId}'s groups list`);
         } catch (error) {
             logger.error("Error removing group from user's list: ", error);
+        }
+    }
+);
+
+export const handleGroupMembershipUpdated = onValueCreated(
+    "groups/{groupId}/members/{userId}",
+    async (event) => {
+        const {groupId, userId} = event.params;
+        const data = event.data.val();
+
+        logger.info(`Group membership created - Group: ${groupId}, User: ${userId}`);
+        logger.info("Data:", data);
+
+        // If the user is being added to the group (data is true)
+        if (data === true) {
+            logger.info(`[Group Membership] User ${userId} is being added to group ${groupId}`);
+            
+            try {
+                // Enable notifications by default for the user in this group
+                await database
+                    .ref(`users/${userId}/notificationPreferences/${groupId}`)
+                    .set(true);
+                
+                logger.info(`[Group Membership] Enabled notifications by default for 
+                    user ${userId} in group ${groupId}`);
+            } catch (error) {
+                logger.error(`[Group Membership] Error enabling notifications for 
+                    user ${userId}:`, error);
+            }
         }
     }
 );
