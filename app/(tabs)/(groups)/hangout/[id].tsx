@@ -302,6 +302,7 @@ export default function HangoutPage() {
                             color="#2c3e50" 
                         />
                         <Text style={styles.title}>{hangout?.name}</Text>
+                        {/*TODO: Hide the createdBy field and add another mechanism to see if the user can delete the hangout*/}
                         {hangout?.createdBy === userId && 
                          (Object.keys(attendees).length === 0 || 
                          (Object.keys(attendees).length === 1 && attendees[userId])) && (

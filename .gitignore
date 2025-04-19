@@ -38,6 +38,9 @@ yarn-error.*
 *.aab
 *.apk
 
+# Logs
+*.log
+
 google-services.json
 GoogleService-Info.plist
 .firebaserc

@@ -1,0 +1,111 @@
+{
+    /* Visit https://firebase.google.com/docs/database/security to learn more about security rules. */
+    "rules": {
+      "users": {
+        "$uid": {
+          "name": {
+            ".read": "auth !== null"
+          },
+          // Users can read and write their own data
+          ".read": "$uid === auth.uid",
+          ".write": "$uid === auth.uid"
+        }
+      },
+      "groups": {
+        // For now, any authenticated user can read groups - maybe an invited user should have temporary read access
+        ".read": "auth !== null",
+        "$groupId": {
+           ".write": "auth !== null && (
+            // CREATION
+            (!data.exists() && newData.exists()) ||
+            
+            // UPDATE
+            (data.exists() && newData.exists() && (
+              // Admins can update anything
+              data.child('admins').child(auth.uid).val() === true)) ||
+             
+            // DELETION
+            (data.exists() && !newData.exists() &&
+              // Must be an admin to delete the group
+              data.child('admins').child(auth.uid).val() === true)
+          )",
+          ".validate": "newData.hasChildren(['name', 'createdAt', 'members', 'admins'])",
+          "name": {
+            ".validate": "newData.isString() && newData.val().length > 0"
+          },
+          "createdAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "members": {
+            ".validate": "newData.hasChildren()",
+            "$uid": {
+              ".validate": "newData.isBoolean()",
+              // Only allow writing to members if user is an admin of the group, or a user adding themselves
+              ".write": "auth !== null && (auth.uid === $uid || data.parent().parent().child('admins').child(auth.uid).val() === true)"
+            }
+          },
+          "admins": {
+            ".validate": "newData.hasChildren()",
+            "$uid": {
+              ".validate": "newData.isBoolean()",
+              // Only admins can modify admin status
+              ".write": "auth != null && (data.parent().parent().child('admins').child(auth.uid).val() === true)"
+            }
+          },
+          "hangouts": {
+             "$hangoutId": {
+              ".validate": "newData.isBoolean()",
+              // Only group members can add hangouts
+              ".write": "auth !== null && data.parent().parent().child('members').child(auth.uid).val() === true"
+            }
+          }
+        }
+      },
+      "hangouts": {
+        ".read": false,
+        "$hangoutId": {
+          "group": {
+            ".read": "auth != null" // TODO, add more restrictions
+          },
+          // First read the group ID from the hangout data
+          // Then check if the user is a member/admin of that group
+          ".read": "auth !== null && 
+            data.exists() && 
+            data.child('group').exists() && 
+            (
+              root.child('groups').child(data.child('group').val()).child('members').child(auth.uid).val() === true ||
+              root.child('groups').child(data.child('group').val()).child('admins').child(auth.uid).val() === true
+            )",
+          ".write": "auth !== null && (
+            // CREATION
+            (!data.exists() && newData.exists() &&
+              // Must be member of the group to create
+              root.child('groups').child(newData.child('group').val()).child('members').child(auth.uid).val() === true) ||
+            
+            // UPDATE
+            (data.exists() && newData.exists() && (
+              // Members can update, except certain fields
+              (root.child('groups').child(data.child('group').val()).child('members').child(auth.uid).val() === true &&
+               // Ensure fields haven't changed
+               data.child('group').val() === newData.child('group').val() &&
+               data.child('createdBy').val() === newData.child('createdBy').val() &&
+               data.child('createdAnonymously').val() === newData.child('createdAnonymously').val() &&
+               data.child('attendees').val() === newData.child('attendees').val()
+              )
+            )) ||
+            
+            // DELETION
+            (data.exists() && !newData.exists() &&
+              // Must be creator to delete
+              data.child('createdBy').val() === auth.uid)
+          )",
+          "attendees": {
+            "$uid": {
+              // Users can only modify their own attendance
+              ".write": "auth !== null && $uid === auth.uid"
+            }
+          }
+        }
+      }
+    }
+  }

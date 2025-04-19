@@ -6,7 +6,9 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test-rules": "jest tests/database.rules.test.ts",
+    "test": "firebase emulators:exec 'jest'"
   },
   "dependencies": {
     "@react-native-community/datetimepicker": "8.2.0",
@@ -40,7 +42,11 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "@types/jest": "^29.5.14",
     "@types/react": "~18.3.12",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.3.2",
     "typescript": "^5.3.3"
   },
   "private": true,
