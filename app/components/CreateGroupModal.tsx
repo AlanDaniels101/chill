@@ -29,6 +29,9 @@ export default function CreateGroupModal({ visible, onClose }: Props) {
         }
       });
       
+      // Add the group to the user's groups list
+      await getDatabase().ref(`/users/${userId}/groups/${newGroupRef.key}`).set(true);
+      
       setNewGroupName('');
       onClose();
       router.push(`/group/${newGroupRef.key}?name=${newGroupName}`);

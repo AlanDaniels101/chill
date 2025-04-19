@@ -136,12 +136,11 @@ describe('Group collection rules', () => {
         });
     });
 
-    // TODO: Consider a system where only invited users can read groups
-    it('should allow reading /groups', async () => {
+    it('should not allow reading /groups', async () => {
         const context = testEnv.authenticatedContext(TEST_UID);
         const db = context.database();
         const groupRef = db.ref('groups');
-        await assertSucceeds(groupRef.once('value'));
+        await assertFails(groupRef.once('value'));
     });
 
     it('should not allow writing /groups', async () => {

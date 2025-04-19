@@ -12,8 +12,6 @@
         }
       },
       "groups": {
-        // For now, any authenticated user can read groups - maybe an invited user should have temporary read access
-        ".read": "auth !== null",
         "$groupId": {
            ".write": "auth !== null && (
             // CREATION
@@ -65,7 +63,7 @@
         ".read": false,
         "$hangoutId": {
           "group": {
-            ".read": "auth != null" // TODO, add more restrictions
+            ".read": "auth != null"
           },
           // First read the group ID from the hangout data
           // Then check if the user is a member/admin of that group
