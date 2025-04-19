@@ -21,7 +21,8 @@
         "aps-environment": "development"
       },
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": ["remote-notification"],
+        "NSCameraUsageDescription": "Turning on camera access allows the app to scan QR codes to invite people to a group."
       }
     },
     "android": {
@@ -79,7 +80,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera"
+          "cameraPermission": "Turning on camera access allows the app to scan QR codes to invite people to a group."
         }
       ]
     ]

@@ -46,3 +46,4 @@ GoogleService-Info.plist
 .firebaserc
 android/
 ios/
+store.config.json
