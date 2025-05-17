@@ -210,3 +210,126 @@ export const handleGroupMembershipUpdated = onValueCreated(
         }
     }
 );
+
+export const handleUserDeletion = onValueDeleted(
+    "users/{userId}",
+    async (event) => {
+        const userId = event.params.userId;
+        
+        try {
+            // Get user's data before it's deleted
+            const userData = event.data.val();
+            if (!userData) {
+                logger.warn(`No user data found for ${userId}`);
+                return;
+            }
+
+            const userGroups = userData.groups || {};
+            const updates: { [path: string]: boolean | null } = {};
+
+            // For each group the user is in
+            for (const groupId of Object.keys(userGroups)) {
+                logger.info(`Processing group ${groupId} for user ${userId}`);
+                
+                // Check if user is an admin
+                const isAdmin = await database.ref(`/groups/${groupId}/admins/${userId}`).once("value");
+                
+                if (isAdmin.exists()) {
+                    logger.info(`User ${userId} is an admin of group ${groupId}`);
+                    // Get all admins of the group
+                    const adminsSnapshot = await database.ref(`/groups/${groupId}/admins`).once("value");
+                    const admins = adminsSnapshot.val() || {};
+                    
+                    // If this is the last admin
+                    if (Object.keys(admins).length === 1) {
+                        logger.info(`User ${userId} is the last admin of group ${groupId}`);
+                        // Get all members of the group
+                        const membersSnapshot = await database.ref(`/groups/${groupId}/members`).once("value");
+                        const members = membersSnapshot.val() || {};
+                        
+                        // Find another member to make admin (excluding the user being deleted)
+                        const otherMembers = Object.keys(members).filter((id: string) => id !== userId);
+                        
+                        if (otherMembers.length === 0) {
+                            // If no other members, delete the group
+                            updates[`/groups/${groupId}`] = null;
+                            logger.info(`Deleting group ${groupId} as it has no remaining members`);
+                            continue; // Skip the rest of the group cleanup since we're deleting it
+                        }
+                        
+                        // Make the first other member an admin
+                        updates[`/groups/${groupId}/admins/${otherMembers[0]}`] = true;
+                        logger.info(`Transferred admin rights in group ${groupId} to user ${otherMembers[0]}`);
+                    }
+                }
+
+                // Remove user from group members and admins
+                updates[`/groups/${groupId}/members/${userId}`] = null;
+                updates[`/groups/${groupId}/admins/${userId}`] = null;
+                logger.info(`Removed user ${userId} from group ${groupId} members and admins`);
+
+                // Get all hangouts for this group
+                const groupHangoutsSnapshot = await database.ref(`/groups/${groupId}/hangouts`).once("value");
+                const groupHangouts = groupHangoutsSnapshot.val() || {};
+                logger.info(`Found ${Object.keys(groupHangouts).length} hangouts in group ${groupId}`);
+
+                // For each hangout in the group
+                for (const hangoutId of Object.keys(groupHangouts)) {
+                    // Check if user is an attendee
+                    const hangoutSnapshot = await database
+                        .ref(`/hangouts/${hangoutId}/attendees/${userId}`)
+                        .once("value");
+                    if (hangoutSnapshot.exists()) {
+                        // Remove user from hangout attendees
+                        updates[`/hangouts/${hangoutId}/attendees/${userId}`] = null;
+                        logger.info(`Removed user ${userId} from hangout ${hangoutId} attendees`);
+                    }
+                }
+            }
+
+            // Perform all updates in a single transaction
+            await database.ref().update(updates);
+            
+            logger.info(`Successfully cleaned up data for deleted user: ${userId}`);
+        } catch (error) {
+            logger.error(`Error cleaning up data for deleted user ${userId}:`, error);
+            throw error; // Re-throw to ensure Firebase retries the function
+        }
+    }
+);
+
+export const handleGroupDeletion = onValueDeleted(
+    "groups/{groupId}",
+    async (event) => {
+        const groupId = event.params.groupId;
+        logger.info(`Starting cleanup for deleted group: ${groupId}`);
+        
+        try {
+            // Get the group data from the event
+            const groupData = event.data.val();
+            if (!groupData) {
+                logger.warn(`No group data found for ${groupId}`);
+                return;
+            }
+
+            const groupHangouts = groupData.hangouts || {};
+            logger.info(`Found ${Object.keys(groupHangouts).length} hangouts to delete for group ${groupId}`);
+            
+            const updates: { [path: string]: boolean | null } = {};
+            
+            // Delete all hangouts associated with this group
+            for (const hangoutId of Object.keys(groupHangouts)) {
+                updates[`/hangouts/${hangoutId}`] = null;
+                logger.info(`Marked hangout ${hangoutId} for deletion`);
+            }
+            
+            // Perform all updates in a single transaction
+            await database.ref().update(updates);
+            
+            logger.info(`Successfully deleted all ${Object.keys(groupHangouts).length} hangouts for group: ${groupId}`);
+        } catch (error) {
+            logger.error(`Error deleting hangouts for group ${groupId}:`, error);
+            throw error; // Re-throw to ensure Firebase retries the function
+        }
+    }
+);

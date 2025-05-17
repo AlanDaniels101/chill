@@ -55,6 +55,7 @@ const AuthContext = createContext(
     verifyPhoneNumber: async (phoneNumber: string) => Promise.resolve<FirebaseAuthTypes.ConfirmationResult | null>(null),
     confirmVerificationCode: async (confirmationResult: any, code: string) => {},
     signOut: async () => {},
+    deleteAccount: async () => {},
     userId: '',
     isLoading: true,
     notificationsEnabled: false,
@@ -120,6 +121,19 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         await getAuth().signOut()
       } catch (e) {
         console.log(e)
+      }
+    }
+
+    const deleteAccount = async () => {
+      try {
+        const user = getAuth().currentUser;
+        if (!user) return;
+
+        await getDatabase().ref(`/users/${user.uid}`).remove();
+        await user.delete();
+      } catch (e) {
+        console.error('Error deleting account:', e);
+        throw e;
       }
     }
 
@@ -304,6 +318,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           verifyPhoneNumber,
           confirmVerificationCode,
           signOut,
+          deleteAccount,
           userId,
           isLoading,
           notificationsEnabled,

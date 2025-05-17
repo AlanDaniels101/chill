@@ -8,7 +8,7 @@ import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
 
 export default function ProfilePage() {
-    const { userId, signOut } = useAuth();
+    const { userId, signOut, deleteAccount } = useAuth();
     const [user, setUser] = useState<User>();
     const [isEditingName, setIsEditingName] = useState(false);
     const [tentativeName, setTentativeName] = useState('');
@@ -51,6 +51,33 @@ export default function ProfilePage() {
             console.error('Error updating name:', error);
             Alert.alert('Error', 'Failed to update name');
         }
+    };
+
+    const handleDeleteAccount = async () => {
+        Alert.alert(
+            "Delete Account",
+            "Are you sure you want to delete your account? This action cannot be undone.",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel"
+                },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await deleteAccount();
+                            // The user will be automatically redirected to login
+                            // due to the auth state change listener
+                        } catch (error) {
+                            console.error('Error deleting account:', error);
+                            Alert.alert('Error', 'Failed to delete account. Please try again.');
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     return (
@@ -131,6 +158,14 @@ export default function ProfilePage() {
             >
                 <MaterialIcons name="logout" size={24} color="white" />
                 <Text style={styles.logoutText}>Log Out</Text>
+            </Pressable>
+
+            <Pressable 
+                style={styles.deleteButton}
+                onPress={handleDeleteAccount}
+            >
+                <MaterialIcons name="delete-forever" size={24} color="white" />
+                <Text style={styles.deleteButtonText}>Delete Account</Text>
             </Pressable>
         </View>
     );
@@ -240,5 +275,20 @@ const styles = StyleSheet.create({
     qrText: {
         fontSize: 12,
         color: '#666',
+    },
+    deleteButton: {
+        backgroundColor: '#ff4444',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
+        borderRadius: 8,
+        gap: 8,
+        marginTop: 12,
+    },
+    deleteButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 }); 
