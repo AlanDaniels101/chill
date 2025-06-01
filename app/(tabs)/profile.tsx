@@ -6,6 +6,7 @@ import { getDatabase } from '@react-native-firebase/database';
 import { User } from '../../types';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
+import * as Application from 'expo-application';
 
 export default function ProfilePage() {
     const { userId, signOut, deleteAccount } = useAuth();
@@ -167,7 +168,11 @@ export default function ProfilePage() {
                 <MaterialIcons name="delete-forever" size={24} color="white" />
                 <Text style={styles.deleteButtonText}>Delete Account</Text>
             </Pressable>
-        </View>
+
+            <Text style={styles.versionText}>
+                Version {Application.nativeApplicationVersion || '-'}
+            </Text>
+        </View>     
     );
 }
 
@@ -290,5 +295,12 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    versionText: {
+        position: 'absolute',
+        bottom: 16,
+        alignSelf: 'center',
+        color: '#666',
+        fontSize: 12,
     },
 }); 
