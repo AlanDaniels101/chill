@@ -28,6 +28,7 @@ export default function Login() {
   const phoneInput = useRef<PhoneInput>(null);
 
   const handlePhoneSubmit = async () => {
+    console.log('formattedPhoneNumber', formattedPhoneNumber);
     if (phoneNumber) {
       const result = await verifyPhoneNumber(formattedPhoneNumber);
       if (result) {
@@ -59,7 +60,7 @@ export default function Login() {
         <View style={styles.content}>
           <MaterialIcons name="ac-unit" size={80} color="#ffffff" style={styles.icon} />
           <Text style={styles.title}>Chill</Text>
-          <Text style={styles.subtitle}>Sustain meaningful connections</Text>
+          <Text style={styles.subtitle}>Sustain meaningful connections!</Text>
           
           {step === 'phone' ? (
             <>
@@ -70,9 +71,11 @@ export default function Login() {
                   defaultCode="CA"
                   onChangeText={(text: string) => {
                     setPhoneNumber(text);
+                    console.log('phoneNumber', phoneNumber);
                   }}
                   onChangeFormattedText={(text: string) => {
                     setFormattedPhoneNumber(text);
+                    console.log('formattedPhoneNumber', formattedPhoneNumber);
                   }}
                   withDarkTheme
                   withShadow
@@ -148,8 +151,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   phoneInputContainer: {
-    width: '80%',
-    maxWidth: 300,
+    width: '90%',
+    maxWidth: 400,
     marginBottom: 24,
   },
   phoneInput: {
@@ -169,8 +172,8 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: '#ffffff20',
-    width: '80%',
-    maxWidth: 300,
+    width: '90%',
+    maxWidth: 400,
     padding: 16,
     borderRadius: 12,
     color: '#ffffff',
@@ -185,8 +188,8 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 12,
-    width: '80%',
-    maxWidth: 300,
+    width: '90%',
+    maxWidth: 400,
   },
   disabledButton: {
     opacity: 0.5,
