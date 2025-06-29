@@ -67,14 +67,10 @@ export default function AddMemberModal({ visible, groupId, onClose }: Props) {
             const groupName = groupSnapshot.val()?.name || 'our group';
             
             const appLink = `chill://join-group/${groupId}`;
-            const appStoreLink = 'https://apps.apple.com/app/chill/id1234567890'; // Replace with your App Store ID
-            const playStoreLink = 'https://play.google.com/store/apps/details?id=com.alan101.chill';
             
             const message = `Join ${groupName} on Chill!\n\n` +
                 `If you have Chill installed, tap this link to join: ${appLink}\n\n` +
-                `Or get the app here:\n` +
-                `iOS: ${appStoreLink}\n` +
-                `Android: ${playStoreLink}`;
+                `Otherwise, please download the app first.`;
             
             const result = await Share.share({
                 message,
@@ -116,7 +112,6 @@ export default function AddMemberModal({ visible, groupId, onClose }: Props) {
                         />
                         <Text style={styles.qrInstructions}>
                             To join, you need the Chill app installed.{'\n'}
-                            Get it from the App Store or Play Store.
                         </Text>
                         
                         <Pressable 
