@@ -72,7 +72,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     const verifyPhoneNumber = async (phoneNumber: string) => {
       try {
         setIsLoading(true)
-        const result = await getAuth().signInWithPhoneNumber(phoneNumber)
+        const result = await getAuth().signInWithPhoneNumber(phoneNumber, true)
         return result
       } catch (e) {
         console.log(e)

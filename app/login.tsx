@@ -28,7 +28,6 @@ export default function Login() {
   const phoneInput = useRef<PhoneInput>(null);
 
   const handlePhoneSubmit = async () => {
-    console.log('formattedPhoneNumber', formattedPhoneNumber);
     if (phoneNumber) {
       const result = await verifyPhoneNumber(formattedPhoneNumber);
       if (result) {
@@ -66,16 +65,15 @@ export default function Login() {
             <>
               <View style={styles.phoneInputContainer}>
                 <PhoneInputWrapper
+                  key={`phone-input-${step}`}
                   ref={phoneInput}
-                  defaultValue={phoneNumber}
+                  value={phoneNumber}
                   defaultCode="CA"
                   onChangeText={(text: string) => {
                     setPhoneNumber(text);
-                    console.log('phoneNumber', phoneNumber);
                   }}
                   onChangeFormattedText={(text: string) => {
                     setFormattedPhoneNumber(text);
-                    console.log('formattedPhoneNumber', formattedPhoneNumber);
                   }}
                   withDarkTheme
                   withShadow
@@ -97,6 +95,22 @@ export default function Login() {
             </>
           ) : (
             <>
+              <View style={styles.backButtonContainer}>
+                <Pressable 
+                  style={styles.backButton}
+                  onPress={() => {
+                    setStep('phone');
+                    setConfirmationResult(null);
+                    setVerificationCode('');
+                    setPhoneNumber('');
+                    setFormattedPhoneNumber('');
+                  }}
+                >
+                  <MaterialIcons name="arrow-back" size={24} color="#ffffff" />
+                  <Text style={styles.backButtonText}>Back</Text>
+                </Pressable>
+              </View>
+              
               <TextInput
                 style={styles.input}
                 placeholder="Enter verification code"
@@ -203,5 +217,24 @@ const styles = StyleSheet.create({
   buttonIcon: {
     marginRight: 4,
     color: '#7dacf9',
-  }
+  },
+  backButtonContainer: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    zIndex: 1,
+  },
+  backButton: {
+    backgroundColor: '#ffffff20',
+    padding: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
 });
