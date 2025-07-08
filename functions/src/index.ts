@@ -194,6 +194,9 @@ export const handleGroupMembershipUpdated = onValueCreated(
         // If the user is being added to the group (data is true)
         if (data === true) {
             logger.info(`[Group Membership] User ${userId} is being added to group ${groupId}`);
+
+            // Add the group to the user's groups list
+            await database.ref(`users/${userId}/groups/${groupId}`).set(true);
             
             try {
                 // Enable notifications by default for the user in this group
