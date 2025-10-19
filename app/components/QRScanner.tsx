@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, StyleSheet } from 'react-native';
+import { Text, View, StyleSheet, Pressable } from 'react-native';
 import { Camera, CameraView, BarcodeScanningResult } from 'expo-camera';
+import { MaterialIcons } from '@expo/vector-icons';
 
 type Props = {
     onScan: (userId: string) => void;
@@ -38,6 +39,12 @@ export default function QRScanner({ onScan, onClose }: Props) {
                     barcodeTypes: ['qr'],
                 }}
             />
+            <Pressable 
+                style={styles.closeButton}
+                onPress={onClose}
+            >
+                <MaterialIcons name="close" size={24} color="#fff" />
+            </Pressable>
         </View>
     );
 }
@@ -46,5 +53,16 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         minHeight: 300,  // Give the camera view some height
+    },
+    closeButton: {
+        position: 'absolute',
+        top: 50,
+        right: 20,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        borderRadius: 20,
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 }); 

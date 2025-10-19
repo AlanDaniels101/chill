@@ -32,12 +32,12 @@ export default function AddMemberModal({ visible, groupId, onClose }: Props) {
         if (!groupId || !newMemberUid.trim()) return;
         
         try {
-            // Check if user exists
-            const userSnapshot = await getDatabase()
-                .ref(`/users/${newMemberUid}`)
+            // Check if user exists by checking their name (which is publicly readable)
+            const userNameSnapshot = await getDatabase()
+                .ref(`/users/${newMemberUid}/name`)
                 .once('value');
             
-            if (!userSnapshot.exists()) {
+            if (!userNameSnapshot.exists()) {
                 Alert.alert('Error', 'User not found');
                 return;
             }
@@ -127,10 +127,12 @@ export default function AddMemberModal({ visible, groupId, onClose }: Props) {
 
                     <Text style={styles.orText}>Or add by user ID:</Text>
                     {isScanning ? (
-                        <QRScanner 
-                            onScan={handleScannedUser}
-                            onClose={() => setIsScanning(false)}
-                        />
+                        <View style={styles.qrScannerContainer}>
+                            <QRScanner 
+                                onScan={handleScannedUser}
+                                onClose={() => setIsScanning(false)}
+                            />
+                        </View>
                     ) : (
                         <View style={styles.inputContainer}>
                             <TextInput
@@ -266,5 +268,14 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: 'bold',
         marginLeft: 8,
+    },
+    qrScannerContainer: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 1000,
+        backgroundColor: 'black',
     },
 }); 
