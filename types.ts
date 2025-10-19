@@ -23,6 +23,7 @@ export type User = {
     id: string;
     name: string;
     fcmToken?: string;
+    hasSetName?: boolean;  // Whether user has set their own name (not default)
     groups?: {
         [groupId: string]: boolean;  // Groups the user belongs to
     };

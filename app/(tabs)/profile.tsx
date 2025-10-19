@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert, TextInput, ScrollView } from 'react-native';
 import { useAuth } from '../../ctx';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
@@ -13,16 +13,36 @@ export default function ProfilePage() {
     const [user, setUser] = useState<User>();
     const [isEditingName, setIsEditingName] = useState(false);
     const [tentativeName, setTentativeName] = useState('');
+    const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
+    const [hasConfiguredProfile, setHasConfiguredProfile] = useState(false);
+    const [bannerVisible, setBannerVisible] = useState(false);
+    const [isProfileLoading, setIsProfileLoading] = useState(true);
 
     useEffect(() => {
         if (!userId) return;
 
         const userRef = getDatabase().ref(`/users/${userId}`);
         
-        const onUserUpdate = (snapshot: any) => {
+        const onUserUpdate = async (snapshot: any) => {
             const userData = snapshot.val();
             if (userData) {
                 setUser({ id: userId, ...userData });
+                setIsProfileLoading(false);
+                
+                // Check if user has configured their profile using hasSetName field
+                const isConfigured = !!(userData.hasSetName);
+                setHasConfiguredProfile(isConfigured);
+                
+                // Show welcome banner if profile is not configured
+                if (!isConfigured) {
+                    setShowWelcomeBanner(true);
+                    // Add a small delay to prevent flashing
+                    setTimeout(() => {
+                        setBannerVisible(true);
+                    }, 300);
+                } else {
+                    setBannerVisible(false);
+                }
             }
         };
 
@@ -45,9 +65,14 @@ export default function ProfilePage() {
         
         try {
             await getDatabase()
-                .ref(`/users/${userId}/name`)
-                .set(tentativeName.trim());
+                .ref(`/users/${userId}`)
+                .update({
+                    name: tentativeName.trim(),
+                    hasSetName: true
+                });
             setIsEditingName(false);
+            // Hide welcome banner when name is saved
+            setShowWelcomeBanner(false);
         } catch (error) {
             console.error('Error updating name:', error);
             Alert.alert('Error', 'Failed to update name');
@@ -81,8 +106,17 @@ export default function ProfilePage() {
         );
     };
 
+    // Show loading screen until user data is loaded
+    if (isProfileLoading) {
+        return (
+            <View style={styles.loadingContainer}>
+            </View>
+        );
+    }
+
     return (
-        <View style={styles.container}>
+        <>
+            <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
             <View style={styles.header}>
                 <MaterialIcons 
                     name="account-circle" 
@@ -92,10 +126,13 @@ export default function ProfilePage() {
                 {isEditingName ? (
                     <View style={styles.nameEditContainer}>
                         <TextInput
-                            style={styles.nameInput}
+                            style={[
+                                styles.nameInput,
+                                !hasConfiguredProfile && styles.nameInputGlow
+                            ]}
                             value={tentativeName}
                             onChangeText={setTentativeName}
-                            placeholder="Enter your name"
+                            placeholder="What should friends call you?"
                             placeholderTextColor="#666"
                             autoFocus
                         />
@@ -118,8 +155,16 @@ export default function ProfilePage() {
                         </View>
                     </View>
                 ) : (
-                    <View style={styles.nameContainer}>
-                        <Text style={styles.name}>{user?.name || 'Loading...'}</Text>
+                    <View style={[
+                        styles.nameContainer,
+                        !hasConfiguredProfile && styles.nameContainerGlow
+                    ]}>
+                        <Text style={[
+                            styles.name,
+                            !user?.hasSetName && styles.placeholderName
+                        ]}>
+                            {user?.name || 'Loading...'}
+                        </Text>
                         <Pressable
                             style={styles.editButton}
                             onPress={() => {
@@ -169,18 +214,60 @@ export default function ProfilePage() {
                 <Text style={styles.deleteButtonText}>Delete Account</Text>
             </Pressable>
 
-            <Text style={styles.versionText}>
-                Version {Application.nativeApplicationVersion || '-'}
-            </Text>
-        </View>     
+            <View style={styles.versionContainer}>
+                <Text style={styles.versionText}>
+                    Version {Application.nativeApplicationVersion || '-'}
+                </Text>
+            </View>
+            </ScrollView>
+
+            {/* Full-screen overlay for name setup */}
+            {showWelcomeBanner && bannerVisible && (
+                <Pressable 
+                    style={styles.fullScreenOverlay}
+                    onPress={() => {
+                        setTentativeName(user?.name || '');
+                        setIsEditingName(true);
+                        setShowWelcomeBanner(false);
+                        setBannerVisible(false);
+                    }}
+                >
+                    <Pressable 
+                        style={styles.welcomeBanner}
+                        onPress={(e) => e.stopPropagation()}
+                    >
+                        <View style={styles.bannerContent}>
+                            <MaterialIcons name="waving-hand" size={24} color="#7dacf9" />
+                            <View style={styles.bannerText}>
+                                <Text style={styles.bannerTitle}>Welcome to Chill!</Text>
+                                <Text style={styles.bannerSubtitle}>Let's set up your profile so friends can recognize you.</Text>
+                            </View>
+                        </View>
+                        <Pressable 
+                            style={styles.dismissButton}
+                            onPress={() => {
+                                setTentativeName(user?.name || '');
+                                setIsEditingName(true);
+                                setShowWelcomeBanner(false);
+                                setBannerVisible(false);
+                            }}
+                        >
+                            <MaterialIcons name="arrow-forward" size={20} color="#7dacf9" />
+                        </Pressable>
+                    </Pressable>
+                </Pressable>
+            )}
+        </>     
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 16,
         backgroundColor: '#fff',
+    },
+    scrollContent: {
+        padding: 16,
     },
     header: {
         alignItems: 'center',
@@ -296,11 +383,121 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
+    versionContainer: {
+        marginTop: 32,
+        marginBottom: 32,
+        alignItems: 'center',
+    },
     versionText: {
-        position: 'absolute',
-        bottom: 16,
-        alignSelf: 'center',
         color: '#666',
         fontSize: 12,
+    },
+    // Full-screen overlay styles
+    fullScreenOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000,
+        paddingHorizontal: 16,
+        opacity: 1,
+    },
+    // Welcome banner styles (original)
+    welcomeBanner: {
+        backgroundColor: '#f8f9ff',
+        borderLeftWidth: 4,
+        borderLeftColor: '#7dacf9',
+        borderRadius: 8,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        shadowColor: '#7dacf9',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+        width: '100%',
+        maxWidth: 400,
+    },
+    bannerContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    bannerText: {
+        marginLeft: 12,
+        flex: 1,
+    },
+    bannerTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#2c3e50',
+        marginBottom: 2,
+    },
+    bannerSubtitle: {
+        fontSize: 14,
+        color: '#666',
+        lineHeight: 18,
+    },
+    dismissButton: {
+        padding: 4,
+        marginLeft: 8,
+    },
+    // Glow effect styles
+    nameContainerGlow: {
+        borderWidth: 2,
+        borderColor: '#7dacf9',
+        borderRadius: 8,
+        padding: 8,
+        backgroundColor: '#f8f9ff',
+        shadowColor: '#7dacf9',
+        shadowOffset: {
+            width: 0,
+            height: 0,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    nameInputGlow: {
+        borderWidth: 2,
+        borderColor: '#7dacf9',
+        borderRadius: 8,
+        padding: 8,
+        backgroundColor: '#f8f9ff',
+        shadowColor: '#7dacf9',
+        shadowOffset: {
+            width: 0,
+            height: 0,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    placeholderName: {
+        fontStyle: 'italic',
+        color: '#7dacf9',
+        opacity: 0.8,
+    },
+    // Loading screen styles
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        padding: 16,
+    },
+    loadingText: {
+        fontSize: 16,
+        color: '#666',
+        marginTop: 16,
     },
 }); 
