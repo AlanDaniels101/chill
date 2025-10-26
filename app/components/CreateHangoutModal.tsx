@@ -5,6 +5,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../ctx';
+import * as Linking from 'expo-linking';
 
 type Props = {
     visible: boolean;
@@ -97,6 +98,42 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
         setShowPicker(true);
     };
 
+    const openMaps = () => {
+        let url: string;
+
+        if (Platform.OS === 'ios') {
+            // iOS - Apple Maps
+            if (location.trim()) {
+                const address = encodeURIComponent(location);
+                url = `maps://maps.apple.com/?q=${address}`;
+            } else {
+                url = `maps://`;
+            }
+        } else {
+            // Android - Google Maps
+            if (location.trim()) {
+                const address = encodeURIComponent(location);
+                url = `https://maps.google.com/?q=${address}`;
+            } else {
+                url = `https://maps.google.com/`;
+            }
+        }
+
+        Linking.openURL(url).catch(() => {
+            // Fallback for Android if Google Maps is not installed
+            if (Platform.OS === 'android') {
+                if (location.trim()) {
+                    const address = encodeURIComponent(location);
+                    Linking.openURL(`geo:0,0?q=${address}`);
+                } else {
+                    Linking.openURL(`geo:0,0`);
+                }
+            } else {
+                Alert.alert('Error', 'Unable to open maps');
+            }
+        });
+    };
+
     return (
         <Modal
             visible={visible}
@@ -150,6 +187,12 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                             value={location}
                             onChangeText={setLocation}
                         />
+                        <Pressable 
+                            style={styles.mapButton}
+                            onPress={openMaps}
+                        >
+                            <MaterialIcons name="map" size={20} color="#5c8ed6" />
+                        </Pressable>
                     </View>
 
                     <View style={styles.attendeeSection}>
@@ -429,5 +472,10 @@ const styles = StyleSheet.create({
     locationInput: {
         flex: 1,
         marginLeft: 0,
+    },
+    mapButton: {
+        padding: 8,
+        borderRadius: 8,
+        backgroundColor: '#f0f5ff',
     },
 }); 
