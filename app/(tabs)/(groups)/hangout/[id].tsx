@@ -7,6 +7,7 @@ import { getDatabase } from '@react-native-firebase/database';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../../../ctx';
 import Linkify from 'react-native-linkify';
+import * as Linking from 'expo-linking';
 
 export default function HangoutPage() {
     const navigation = useNavigation();
@@ -21,6 +22,28 @@ export default function HangoutPage() {
     const [attendees, setAttendees] = useState<{ [key: string]: User }>({});
     const [isEditingInfo, setIsEditingInfo] = useState(false);
     const [tentativeInfo, setTentativeInfo] = useState('');
+
+    const isUrl = (text: string): boolean => {
+        const trimmed = text.trim();
+        return trimmed.startsWith('http://') || 
+               trimmed.startsWith('https://') || 
+               trimmed.startsWith('maps://');
+    };
+
+    const handleLocationPress = () => {
+        if (!hangout?.location) return;
+        
+        let urlToOpen = hangout.location.trim();
+        
+        // Ensure URL has a protocol
+        if (!urlToOpen.startsWith('http://') && !urlToOpen.startsWith('https://') && !urlToOpen.startsWith('maps://')) {
+            urlToOpen = `https://${urlToOpen}`;
+        }
+        
+        Linking.openURL(urlToOpen).catch(() => {
+            Alert.alert('Error', 'Unable to open link');
+        });
+    };
 
     const handleDecline = async () => {
         if (!hangout) return;
@@ -353,9 +376,17 @@ export default function HangoutPage() {
                         {hangout?.location && (
                             <View style={styles.infoRow}>
                                 <MaterialIcons name="location-on" size={24} color="#666" />
-                                <Text style={styles.infoText}>
-                                    {hangout.location}
-                                </Text>
+                                {isUrl(hangout.location) ? (
+                                    <Pressable onPress={handleLocationPress}>
+                                        <Text style={[styles.infoText, styles.locationLink]}>
+                                            {hangout.location}
+                                        </Text>
+                                    </Pressable>
+                                ) : (
+                                    <Text style={styles.infoText}>
+                                        {hangout.location}
+                                    </Text>
+                                )}
                             </View>
                         )}
                     </View>
@@ -489,6 +520,10 @@ const styles = StyleSheet.create({
     infoText: {
         fontSize: 16,
         color: '#2c3e50',
+    },
+    locationLink: {
+        textDecorationLine: 'underline',
+        color: '#5c8ed6',
     },
     section: {
         marginTop: 24,

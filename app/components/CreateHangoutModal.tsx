@@ -98,6 +98,28 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
         setShowPicker(true);
     };
 
+    const isUrl = (text: string): boolean => {
+        const trimmed = text.trim();
+        return trimmed.startsWith('http://') || 
+               trimmed.startsWith('https://') || 
+               trimmed.startsWith('maps://');
+    };
+
+    const openUrl = () => {
+        if (!location.trim()) return;
+        
+        let urlToOpen = location.trim();
+        
+        // Ensure URL has a protocol
+        if (!urlToOpen.startsWith('http://') && !urlToOpen.startsWith('https://') && !urlToOpen.startsWith('maps://')) {
+            urlToOpen = `https://${urlToOpen}`;
+        }
+        
+        Linking.openURL(urlToOpen).catch(() => {
+            Alert.alert('Error', 'Unable to open link');
+        });
+    };
+
     const openMaps = () => {
         let url: string;
 
@@ -187,6 +209,14 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                             value={location}
                             onChangeText={setLocation}
                         />
+                        {isUrl(location) && (
+                            <Pressable 
+                                style={styles.linkButton}
+                                onPress={openUrl}
+                            >
+                                <MaterialIcons name="link" size={20} color="#5c8ed6" />
+                            </Pressable>
+                        )}
                         <Pressable 
                             style={styles.mapButton}
                             onPress={openMaps}
@@ -472,6 +502,11 @@ const styles = StyleSheet.create({
     locationInput: {
         flex: 1,
         marginLeft: 0,
+    },
+    linkButton: {
+        padding: 8,
+        borderRadius: 8,
+        backgroundColor: '#f0f5ff',
     },
     mapButton: {
         padding: 8,

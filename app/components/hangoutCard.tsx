@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { Hangout } from '../../types';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { formatDistanceToNow, format } from 'date-fns';
+import * as Linking from 'expo-linking';
 
 interface Props {
     hangout: Hangout;
@@ -15,6 +16,28 @@ export default function HangoutCard({ hangout }: Props) {
     
     const currentAttendees = Object.keys(hangout.attendees || {}).length;
     const needsMoreAttendees = currentAttendees < (hangout.minAttendees || 2);
+
+    const isUrl = (text: string): boolean => {
+        const trimmed = text.trim();
+        return trimmed.startsWith('http://') || 
+               trimmed.startsWith('https://') || 
+               trimmed.startsWith('maps://');
+    };
+
+    const handleLocationPress = () => {
+        if (!hangout.location) return;
+        
+        let urlToOpen = hangout.location.trim();
+        
+        // Ensure URL has a protocol
+        if (!urlToOpen.startsWith('http://') && !urlToOpen.startsWith('https://') && !urlToOpen.startsWith('maps://')) {
+            urlToOpen = `https://${urlToOpen}`;
+        }
+        
+        Linking.openURL(urlToOpen).catch(() => {
+            Alert.alert('Error', 'Unable to open link');
+        });
+    };
 
     return (
         <Pressable 
@@ -64,12 +87,24 @@ export default function HangoutCard({ hangout }: Props) {
                             color={isPast ? '#888' : '#666'} 
                             style={styles.locationIcon} 
                         />
-                        <Text style={[
-                            styles.location,
-                            isPast && { color: '#888' }
-                        ]}>
-                            {hangout.location}
-                        </Text>
+                        {isUrl(hangout.location) ? (
+                            <Pressable onPress={handleLocationPress}>
+                                <Text style={[
+                                    styles.location,
+                                    styles.locationLink,
+                                    isPast && { color: '#888' }
+                                ]}>
+                                    {hangout.location}
+                                </Text>
+                            </Pressable>
+                        ) : (
+                            <Text style={[
+                                styles.location,
+                                isPast && { color: '#888' }
+                            ]}>
+                                {hangout.location}
+                            </Text>
+                        )}
                     </View>
                 )}
             </View>
@@ -150,5 +185,9 @@ const styles = StyleSheet.create({
     location: {
         fontSize: 12,
         color: '#666',
+    },
+    locationLink: {
+        textDecorationLine: 'underline',
+        color: '#5c8ed6',
     },
 }); 
