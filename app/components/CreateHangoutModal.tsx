@@ -1,4 +1,4 @@
-import { View, Text, Modal, TextInput, Pressable, StyleSheet, Platform, Alert } from 'react-native';
+import { View, Text, Modal, TextInput, Pressable, StyleSheet, Platform, Alert, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { useState } from 'react';
 import { getDatabase } from '@react-native-firebase/database';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -82,18 +82,33 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
     };
 
     const onChange = (event: any, selectedDate?: Date) => {
-        setShowPicker(Platform.OS === 'ios');
-        if (selectedDate) {
-            setDate(selectedDate);
+        if (Platform.OS === 'android') {
+            // On Android, the picker is a modal - close it
+            setShowPicker(false);
+            // Only update if user confirmed (not cancelled)
+            if (event.type === 'set' && selectedDate) {
+                setDate(selectedDate);
+            }
+        } else {
+            // On iOS, update in real-time as user scrolls the spinner
+            if (selectedDate) {
+                setDate(selectedDate);
+            }
+            // Close picker when dismissed (user taps outside)
+            if (event.type === 'dismissed') {
+                setShowPicker(false);
+            }
         }
     };
 
     const showDatepicker = () => {
+        Keyboard.dismiss();
         setPickerMode('date');
         setShowPicker(true);
     };
 
     const showTimepicker = () => {
+        Keyboard.dismiss();
         setPickerMode('time');
         setShowPicker(true);
     };
@@ -163,8 +178,16 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
             animationType="fade"
             onRequestClose={onClose}
         >
-            <View style={styles.modalOverlay}>
-                <View style={styles.modalContent}>
+            <TouchableWithoutFeedback onPress={() => {
+                Keyboard.dismiss();
+                setShowPicker(false);
+            }}>
+                <View style={styles.modalOverlay}>
+                    <TouchableWithoutFeedback onPress={() => {
+                        Keyboard.dismiss();
+                        setShowPicker(false);
+                    }}>
+                        <View style={styles.modalContent}>
                     <View style={styles.modalHeader}>
                         <Text style={styles.modalTitle}>Create Hangout</Text>
                         <Pressable onPress={onClose}>
@@ -177,6 +200,7 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                         placeholder="Hangout name"
                         value={name}
                         onChangeText={setName}
+                        onFocus={() => setShowPicker(false)}
                     />
 
                     <View style={styles.dateTimeContainer}>
@@ -193,12 +217,17 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                     </View>
 
                     {showPicker && (
-                        <DateTimePicker
-                            value={date}
-                            mode={pickerMode}
-                            is24Hour={false}
-                            onChange={onChange}
-                        />
+                        <TouchableWithoutFeedback onPress={() => {}}>
+                            <View style={styles.pickerContainer}>
+                                <DateTimePicker
+                                    value={date}
+                                    mode={pickerMode}
+                                    is24Hour={false}
+                                    onChange={onChange}
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                />
+                            </View>
+                        </TouchableWithoutFeedback>
                     )}
 
                     <View style={styles.locationContainer}>
@@ -208,6 +237,7 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                             placeholder="Add location"
                             value={location}
                             onChangeText={setLocation}
+                            onFocus={() => setShowPicker(false)}
                         />
                         {isUrl(location) && (
                             <Pressable 
@@ -248,6 +278,7 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                                         selectTextOnFocus
                                         editable={true}
                                         maxLength={2}
+                                        onFocus={() => setShowPicker(false)}
                                     />
                                     <Pressable 
                                         style={styles.counterButton}
@@ -277,6 +308,7 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                                         selectTextOnFocus
                                         editable={true}
                                         maxLength={2}
+                                        onFocus={() => setShowPicker(false)}
                                     />
                                     <Pressable 
                                         style={styles.counterButton}
@@ -332,8 +364,10 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                             <Text style={styles.buttonText}>Create</Text>
                         </Pressable>
                     </View>
+                        </View>
+                    </TouchableWithoutFeedback>
                 </View>
-            </View>
+            </TouchableWithoutFeedback>
         </Modal>
     );
 }
@@ -410,6 +444,15 @@ const styles = StyleSheet.create({
     dateTimeButtonText: {
         fontSize: 16,
         color: '#2c3e50',
+    },
+    pickerContainer: {
+        marginTop: 8,
+        paddingVertical: Platform.OS === 'ios' ? 12 : 0,
+        alignItems: 'center',
+        borderWidth: Platform.OS === 'ios' ? 1 : 0,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        backgroundColor: Platform.OS === 'ios' ? '#f9f9f9' : 'transparent',
     },
     checkboxContainer: {
         flexDirection: 'row',
