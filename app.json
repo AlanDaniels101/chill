@@ -22,7 +22,8 @@
       },
       "infoPlist": {
         "UIBackgroundModes": ["remote-notification"],
-        "NSCameraUsageDescription": "Turning on camera access allows the app to scan QR codes to invite people to a group."
+        "NSCameraUsageDescription": "Turning on camera access allows the app to scan QR codes to invite people to a group.",
+        "NSCalendarsUsageDescription": "Calendar access allows you to add hangouts to your calendar."
       }
     },
     "android": {
@@ -80,6 +81,12 @@
         "expo-camera",
         {
           "cameraPermission": "Turning on camera access allows the app to scan QR codes to invite people to a group."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Turning on calendar access allows the app to create calendar events for hangouts."
         }
       ]
     ]

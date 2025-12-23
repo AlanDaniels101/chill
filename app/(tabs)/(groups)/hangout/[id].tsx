@@ -10,6 +10,7 @@ import Linkify from 'react-native-linkify';
 import * as Linking from 'expo-linking';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
+import * as Calendar from 'expo-calendar';
 
 export default function HangoutPage() {
     const navigation = useNavigation();
@@ -284,6 +285,55 @@ export default function HangoutPage() {
             if (event.type === 'dismissed') {
                 setShowDatePicker(false);
             }
+        }
+    };
+
+    const handleAddToCalendar = async () => {
+        if (!hangout || !hangout.time || hangout.datetimePollInProgress) {
+            Alert.alert('Error', 'Cannot add to calendar: Date has not been set yet.');
+            return;
+        }
+
+        try {
+            // Request calendar permissions
+            const { status } = await Calendar.requestCalendarPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert(
+                    'Permission Required',
+                    'Calendar access is required to add events. Please enable it in your device settings.'
+                );
+                return;
+            }
+
+            // Get default calendar
+            const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+            const defaultCalendar = calendars.find(cal => cal.allowsModifications) || calendars[0];
+
+            if (!defaultCalendar) {
+                Alert.alert('Error', 'No writable calendar found on your device.');
+                return;
+            }
+
+            // Create event details
+            const startDate = new Date(hangout.time);
+            const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Default 1 hour duration
+
+            const eventDetails = {
+                title: hangout.name,
+                startDate: startDate,
+                endDate: endDate,
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                ...(hangout.info && { notes: hangout.info }),
+                ...(hangout.location && { location: hangout.location }),
+            };
+
+            // Create the event
+            const eventId = await Calendar.createEventAsync(defaultCalendar.id, eventDetails);
+            
+            Alert.alert('Success', 'Hangout added to your calendar!');
+        } catch (error: any) {
+            console.error('Error adding to calendar:', error);
+            Alert.alert('Error', `Failed to add to calendar: ${error.message || 'Unknown error'}`);
         }
     };
 
@@ -720,6 +770,15 @@ export default function HangoutPage() {
                             <Text style={styles.infoText}>
                                 {hangout?.datetimePollInProgress ? 'TBD' : date.toLocaleString()}
                             </Text>
+                            {!hangout?.datetimePollInProgress && hangout?.time && (
+                                <Pressable
+                                    style={styles.addToCalendarButton}
+                                    onPress={handleAddToCalendar}
+                                >
+                                    <MaterialIcons name="event" size={20} color="#4CAF50" />
+                                    <Text style={styles.addToCalendarText}>Add to Calendar</Text>
+                                </Pressable>
+                            )}
                         </View>
 
                         <View style={styles.infoRow}>
@@ -894,10 +953,27 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
+        flexWrap: 'wrap',
     },
     infoText: {
         fontSize: 16,
         color: '#2c3e50',
+        flex: 1,
+    },
+    addToCalendarButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        backgroundColor: '#e8f5e9',
+        borderRadius: 8,
+        marginLeft: 'auto',
+    },
+    addToCalendarText: {
+        color: '#4CAF50',
+        fontSize: 14,
+        fontWeight: '600',
     },
     locationLink: {
         textDecorationLine: 'underline',
