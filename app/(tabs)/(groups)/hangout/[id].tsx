@@ -1,13 +1,15 @@
 import React from 'react';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Text, View, StyleSheet, Pressable, Alert, Share, ScrollView, TextInput, Image } from 'react-native';
+import { Text, View, StyleSheet, Pressable, Alert, Share, ScrollView, TextInput, Image, Platform } from 'react-native';
 import { Hangout, Group, User } from '../../../../types';
 import { getDatabase } from '@react-native-firebase/database';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../../../ctx';
 import Linkify from 'react-native-linkify';
 import * as Linking from 'expo-linking';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { format } from 'date-fns';
 
 export default function HangoutPage() {
     const navigation = useNavigation();
@@ -22,6 +24,9 @@ export default function HangoutPage() {
     const [attendees, setAttendees] = useState<{ [key: string]: User }>({});
     const [isEditingInfo, setIsEditingInfo] = useState(false);
     const [tentativeInfo, setTentativeInfo] = useState('');
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
+    const [suggestedDate, setSuggestedDate] = useState(new Date());
 
     const isUrl = (text: string): boolean => {
         const trimmed = text.trim();
@@ -150,6 +155,219 @@ export default function HangoutPage() {
         }
     };
 
+    const handleToggleDateSelection = async (dateTimestamp: number) => {
+        if (!hangout || !userId || !id) return;
+        
+        try {
+            const currentSelections = hangout.datePollSelections?.[userId] || [];
+            const isSelected = currentSelections.includes(dateTimestamp);
+            
+            let newSelections: number[];
+            if (isSelected) {
+                newSelections = currentSelections.filter((ts: number) => ts !== dateTimestamp);
+            } else {
+                newSelections = [...currentSelections, dateTimestamp];
+            }
+            
+            await getDatabase()
+                .ref(`/hangouts/${id}/datePollSelections/${userId}`)
+                .set(newSelections.length > 0 ? newSelections : null);
+        } catch (error) {
+            console.error('Error toggling date selection:', error);
+            Alert.alert('Error', 'Failed to update date selection. Please try again.');
+        }
+    };
+
+    const handleSuggestNewTime = async () => {
+        if (!hangout || !userId || !id) return;
+        
+        try {
+            const timestamp = suggestedDate.getTime();
+            const timestampStr = timestamp.toString();
+            const currentCandidates: { [key: string]: string } = hangout.candidateDates || {};
+            
+            // Don't add duplicate dates
+            if (currentCandidates[timestampStr]) {
+                Alert.alert('Notice', 'This date is already a candidate.');
+                return;
+            }
+            
+            const updatedCandidates = {
+                ...currentCandidates,
+                [timestampStr]: userId
+            };
+            await getDatabase()
+                .ref(`/hangouts/${id}/candidateDates`)
+                .set(updatedCandidates);
+            
+            // Also select the newly suggested date
+            const currentSelections = hangout.datePollSelections?.[userId] || [];
+            const newSelections = [...currentSelections, timestamp];
+            await getDatabase()
+                .ref(`/hangouts/${id}/datePollSelections/${userId}`)
+                .set(newSelections);
+            
+            setShowDatePicker(false);
+        } catch (error) {
+            console.error('Error suggesting new time:', error);
+            Alert.alert('Error', 'Failed to suggest new time. Please try again.');
+        }
+    };
+
+    const handleDeleteCandidateDate = async (timestamp: number) => {
+        if (!hangout || !userId || !id) return;
+        
+        const timestampStr = timestamp.toString();
+        const suggestedBy: string | undefined = hangout.candidateDates?.[timestampStr];
+        const isOrganizer = hangout.createdBy === userId;
+        const isSuggester = suggestedBy === userId;
+        
+        if (!isOrganizer && !isSuggester) {
+            Alert.alert('Error', 'You can only delete dates you suggested or if you are the event organizer.');
+            return;
+        }
+        
+        Alert.alert(
+            "Delete Date",
+            "Are you sure you want to remove this date from the poll?",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel"
+                },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            const currentCandidates: { [key: string]: string } = { ...(hangout.candidateDates || {}) };
+                            delete currentCandidates[timestampStr];
+                            
+                            await getDatabase()
+                                .ref(`/hangouts/${id}/candidateDates`)
+                                .set(Object.keys(currentCandidates).length > 0 ? currentCandidates : null);
+                            
+                            // Remove this date from all users' selections
+                            const currentSelections: { [uid: string]: number[] } = hangout.datePollSelections || {};
+                            const updatedSelections: { [uid: string]: number[] } = {};
+                            
+                            for (const [uid, selections] of Object.entries(currentSelections)) {
+                                const filtered = (selections || []).filter((ts: number) => ts !== timestamp);
+                                if (filtered.length > 0) {
+                                    updatedSelections[uid] = filtered;
+                                }
+                            }
+                            
+                            await getDatabase()
+                                .ref(`/hangouts/${id}/datePollSelections`)
+                                .set(Object.keys(updatedSelections).length > 0 ? updatedSelections : null);
+                        } catch (error) {
+                            console.error('Error deleting candidate date:', error);
+                            Alert.alert('Error', 'Failed to delete date. Please try again.');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const onDatePickerChange = (event: any, selectedDate?: Date) => {
+        if (Platform.OS === 'android') {
+            setShowDatePicker(false);
+            if (event.type === 'set' && selectedDate) {
+                setSuggestedDate(selectedDate);
+            }
+        } else {
+            if (selectedDate) {
+                setSuggestedDate(selectedDate);
+            }
+            if (event.type === 'dismissed') {
+                setShowDatePicker(false);
+            }
+        }
+    };
+
+    const handleClosePoll = async () => {
+        if (!hangout || !userId || !id) return;
+        
+        if (hangout.createdBy !== userId) {
+            Alert.alert('Error', 'Only the event organizer can close the poll.');
+            return;
+        }
+        
+        const candidateDates: { [key: string]: string } = hangout.candidateDates || {};
+        const candidateTimestamps = Object.keys(candidateDates).map(ts => parseInt(ts));
+        
+        if (candidateTimestamps.length === 0) {
+            Alert.alert('Error', 'Cannot close poll: No candidate dates available.');
+            return;
+        }
+        
+        // Calculate vote counts for each candidate date
+        const voteCounts: { [timestamp: number]: number } = {};
+        const allSelections = hangout.datePollSelections || {};
+        candidateTimestamps.forEach((timestamp: number) => {
+            let count = 0;
+            Object.values(allSelections).forEach((selections: number[]) => {
+                if (selections.includes(timestamp)) {
+                    count++;
+                }
+            });
+            voteCounts[timestamp] = count;
+        });
+        
+        // Check if any dates have votes
+        const maxVotes = Math.max(...Object.values(voteCounts));
+        if (maxVotes === 0) {
+            Alert.alert('Error', 'Cannot close poll: No dates have been voted for.');
+            return;
+        }
+        
+        // Find dates with the most votes
+        const datesWithMaxVotes = candidateTimestamps.filter(
+            (timestamp: number) => voteCounts[timestamp] === maxVotes
+        );
+        
+        // Check for ties
+        if (datesWithMaxVotes.length > 1) {
+            Alert.alert(
+                'Tie Detected',
+                `Cannot close poll: There is a tie between ${datesWithMaxVotes.length} dates with ${maxVotes} vote${maxVotes !== 1 ? 's' : ''} each. Please resolve the tie before closing.`
+            );
+            return;
+        }
+        
+        // Close the poll and set the winning date
+        const winningTimestamp = datesWithMaxVotes[0];
+        
+        Alert.alert(
+            "Close Poll",
+            `Set the date to ${format(new Date(winningTimestamp), 'MMM d, yyyy h:mm a')}?`,
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel"
+                },
+                {
+                    text: "Close Poll",
+                    onPress: async () => {
+                        try {
+                            await getDatabase()
+                                .ref(`/hangouts/${id}/time`)
+                                .set(winningTimestamp);
+                            await getDatabase()
+                                .ref(`/hangouts/${id}/datetimePollInProgress`)
+                                .set(null);
+                        } catch (error) {
+                            console.error('Error closing poll:', error);
+                            Alert.alert('Error', 'Failed to close poll. Please try again.');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     useEffect(() => {
         setLoadComplete(false);
         navigation.setOptions({
@@ -231,7 +449,165 @@ export default function HangoutPage() {
     if (!loadComplete) return null;
 
     const date = new Date(hangout?.time || 0);
-    const isPast = date < new Date();
+    const isPast = date < new Date() && !hangout?.datetimePollInProgress;
+
+    // Polling section rendering
+    const renderPollingSection = () => {
+        if (!hangout?.datetimePollInProgress) return null;
+        
+        const candidateDates: { [key: string]: string } = hangout.candidateDates || {};
+        const userSelections = hangout.datePollSelections?.[userId] || [];
+        const candidateTimestamps = Object.keys(candidateDates).map(ts => parseInt(ts)).sort((a, b) => a - b);
+        const isOrganizer = hangout.createdBy === userId;
+        
+        // Calculate vote counts for each candidate date
+        const voteCounts: { [timestamp: number]: number } = {};
+        const allSelections = hangout.datePollSelections || {};
+        candidateTimestamps.forEach((timestamp: number) => {
+            let count = 0;
+            Object.values(allSelections).forEach((selections: number[]) => {
+                if (selections.includes(timestamp)) {
+                    count++;
+                }
+            });
+            voteCounts[timestamp] = count;
+        });
+        
+        return (
+            <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Select Available Dates</Text>
+                    {isOrganizer && (
+                        <Pressable
+                            style={styles.closePollButton}
+                            onPress={handleClosePoll}
+                        >
+                            <MaterialIcons name="check-circle" size={20} color="#4CAF50" />
+                            <Text style={styles.closePollButtonText}>Close Poll</Text>
+                        </Pressable>
+                    )}
+                </View>
+                <View style={styles.pollingContainer}>
+                    {candidateTimestamps.length > 0 ? (
+                        <>
+                            {candidateTimestamps.map((timestamp: number) => {
+                                const date = new Date(timestamp);
+                                const isSelected = userSelections.includes(timestamp);
+                                const timestampStr = timestamp.toString();
+                                const suggestedBy: string | undefined = candidateDates[timestampStr];
+                                const canDelete = isOrganizer || suggestedBy === userId;
+                                const voteCount = voteCounts[timestamp] || 0;
+                                
+                                return (
+                                    <View
+                                        key={timestamp}
+                                        style={[
+                                            styles.dateOption,
+                                            isSelected && styles.dateOptionSelected
+                                        ]}
+                                    >
+                                        <Pressable
+                                            style={styles.dateOptionContent}
+                                            onPress={() => handleToggleDateSelection(timestamp)}
+                                        >
+                                            <MaterialIcons
+                                                name={isSelected ? "check-box" : "check-box-outline-blank"}
+                                                size={24}
+                                                color={isSelected ? "#5c8ed6" : "#666"}
+                                            />
+                                            <Text style={[
+                                                styles.dateOptionText,
+                                                isSelected && styles.dateOptionTextSelected
+                                            ]}>
+                                                {format(date, 'MMM d, yyyy h:mm a')}
+                                            </Text>
+                                            <View style={styles.voteCountContainer}>
+                                                <MaterialIcons name="people" size={16} color="#666" />
+                                                <Text style={styles.voteCountText}>{voteCount}</Text>
+                                            </View>
+                                        </Pressable>
+                                        {canDelete && (
+                                            <Pressable
+                                                style={styles.deleteDateButton}
+                                                onPress={() => handleDeleteCandidateDate(timestamp)}
+                                            >
+                                                <MaterialIcons name="close" size={20} color="#e74c3c" />
+                                            </Pressable>
+                                        )}
+                                    </View>
+                                );
+                            })}
+                        </>
+                    ) : (
+                        <Text style={styles.emptyText}>No candidate dates yet. Suggest a time below!</Text>
+                    )}
+                    
+                    <View style={styles.suggestTimeContainer}>
+                        <Text style={styles.suggestTimeLabel}>Suggest a New Time</Text>
+                        <View style={styles.dateTimeContainer}>
+                            <Pressable
+                                style={styles.dateTimeButton}
+                                onPress={() => {
+                                    setPickerMode('date');
+                                    setShowDatePicker(true);
+                                }}
+                            >
+                                <Text style={styles.dateTimeButtonText}>
+                                    {format(suggestedDate, 'MMM d, yyyy')}
+                                </Text>
+                            </Pressable>
+                            <Pressable
+                                style={styles.dateTimeButton}
+                                onPress={() => {
+                                    setPickerMode('time');
+                                    setShowDatePicker(true);
+                                }}
+                            >
+                                <Text style={styles.dateTimeButtonText}>
+                                    {format(suggestedDate, 'h:mm a')}
+                                </Text>
+                            </Pressable>
+                        </View>
+                        {showDatePicker && (
+                            <View style={styles.pickerContainer}>
+                                <DateTimePicker
+                                    value={suggestedDate}
+                                    mode={pickerMode}
+                                    is24Hour={false}
+                                    onChange={onDatePickerChange}
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                />
+                                {Platform.OS === 'ios' && (
+                                    <View style={styles.pickerButtons}>
+                                        <Pressable
+                                            style={[styles.pickerButton, styles.cancelButton]}
+                                            onPress={() => setShowDatePicker(false)}
+                                        >
+                                            <Text style={styles.buttonText}>Cancel</Text>
+                                        </Pressable>
+                                        <Pressable
+                                            style={[styles.pickerButton, styles.saveButton]}
+                                            onPress={handleSuggestNewTime}
+                                        >
+                                            <Text style={styles.buttonText}>Suggest</Text>
+                                        </Pressable>
+                                    </View>
+                                )}
+                            </View>
+                        )}
+                        {!showDatePicker && (
+                            <Pressable
+                                style={styles.suggestButton}
+                                onPress={handleSuggestNewTime}
+                            >
+                                <Text style={styles.suggestButtonText}>Suggest This Time</Text>
+                            </Pressable>
+                        )}
+                    </View>
+                </View>
+            </View>
+        );
+    };
 
     // Info section rendering
     const renderInfoSection = () => {
@@ -342,7 +718,7 @@ export default function HangoutPage() {
                         <View style={styles.infoRow}>
                             <MaterialIcons name="schedule" size={24} color="#666" />
                             <Text style={styles.infoText}>
-                                {date.toLocaleString()}
+                                {hangout?.datetimePollInProgress ? 'TBD' : date.toLocaleString()}
                             </Text>
                         </View>
 
@@ -392,6 +768,8 @@ export default function HangoutPage() {
                     </View>
 
                     {renderInfoSection()}
+
+                    {renderPollingSection()}
 
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
@@ -534,6 +912,20 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         marginBottom: 12,
     },
+    closePollButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        backgroundColor: '#e8f5e9',
+        borderRadius: 8,
+    },
+    closePollButtonText: {
+        color: '#4CAF50',
+        fontSize: 14,
+        fontWeight: '600',
+    },
     sectionTitle: {
         fontSize: 20,
         fontWeight: 'bold',
@@ -673,5 +1065,117 @@ const styles = StyleSheet.create({
         width: 24,
         height: 24,
         borderRadius: 12,
+    },
+    pollingContainer: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 12,
+        gap: 12,
+    },
+    dateOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        gap: 12,
+    },
+    dateOptionSelected: {
+        backgroundColor: '#f0f5ff',
+        borderColor: '#5c8ed6',
+    },
+    dateOptionContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        gap: 12,
+    },
+    dateOptionText: {
+        fontSize: 16,
+        color: '#2c3e50',
+        flex: 1,
+    },
+    dateOptionTextSelected: {
+        color: '#5c8ed6',
+        fontWeight: '500',
+    },
+    deleteDateButton: {
+        padding: 4,
+        marginLeft: 8,
+    },
+    voteCountContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginLeft: 8,
+    },
+    voteCountText: {
+        fontSize: 14,
+        color: '#666',
+        fontWeight: '500',
+    },
+    suggestTimeContainer: {
+        marginTop: 8,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+        gap: 12,
+    },
+    suggestTimeLabel: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#2c3e50',
+    },
+    dateTimeContainer: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    dateTimeButton: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        padding: 12,
+        alignItems: 'center',
+    },
+    dateTimeButtonText: {
+        fontSize: 16,
+        color: '#2c3e50',
+    },
+    pickerContainer: {
+        marginTop: 8,
+        paddingVertical: Platform.OS === 'ios' ? 12 : 0,
+        alignItems: 'center',
+        borderWidth: Platform.OS === 'ios' ? 1 : 0,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        backgroundColor: Platform.OS === 'ios' ? '#f9f9f9' : 'transparent',
+    },
+    pickerButtons: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        marginTop: 12,
+        gap: 12,
+        width: '100%',
+        paddingHorizontal: 12,
+    },
+    pickerButton: {
+        paddingHorizontal: 20,
+        paddingVertical: 8,
+        borderRadius: 4,
+    },
+    suggestButton: {
+        marginTop: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: '#5c8ed6',
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    suggestButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '500',
     },
 }); 

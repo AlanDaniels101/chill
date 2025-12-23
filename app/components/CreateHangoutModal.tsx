@@ -35,6 +35,7 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
     const [maxAttendees, setMaxAttendees] = useState(8);
     const [showTooltip, setShowTooltip] = useState(false);
     const [location, setLocation] = useState('');
+    const [pollMode, setPollMode] = useState(false);
 
     // Reset form with tomorrow's date
     const resetForm = () => {
@@ -42,6 +43,7 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
         setDate(getTomorrowDate());
         setCreatedAnonymously(true);
         setLocation('');
+        setPollMode(false);
     };
 
     const handleCreate = async () => {
@@ -52,10 +54,9 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
         
         try {
             // Create the hangout with the creator as an attendee
-            await hangoutRef.set({
+            const hangoutData: any = {
                 id: hangoutId,
                 name,
-                time: date.getTime(),
                 group: groupId,
                 createdAnonymously,
                 minAttendees,
@@ -65,7 +66,16 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                 attendees: {
                     [userId]: true
                 }
-            });
+            };
+
+            // Add time or poll flag based on mode
+            if (pollMode) {
+                hangoutData.datetimePollInProgress = true;
+            } else {
+                hangoutData.time = date.getTime();
+            }
+
+            await hangoutRef.set(hangoutData);
 
             // Add the hangout to the group's hangouts list
             await getDatabase()
@@ -203,32 +213,48 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                         onFocus={() => setShowPicker(false)}
                     />
 
-                    <View style={styles.dateTimeContainer}>
-                        <Pressable style={styles.dateTimeButton} onPress={showDatepicker}>
-                            <Text style={styles.dateTimeButtonText}>
-                                {format(date, 'MMM d, yyyy')}
-                            </Text>
-                        </Pressable>
-                        <Pressable style={styles.dateTimeButton} onPress={showTimepicker}>
-                            <Text style={styles.dateTimeButtonText}>
-                                {format(date, 'h:mm a')}
-                            </Text>
-                        </Pressable>
-                    </View>
-
-                    {showPicker && (
-                        <TouchableWithoutFeedback onPress={() => {}}>
-                            <View style={styles.pickerContainer}>
-                                <DateTimePicker
-                                    value={date}
-                                    mode={pickerMode}
-                                    is24Hour={false}
-                                    onChange={onChange}
-                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                />
+                    {!pollMode && (
+                        <>
+                            <View style={styles.dateTimeContainer}>
+                                <Pressable style={styles.dateTimeButton} onPress={showDatepicker}>
+                                    <Text style={styles.dateTimeButtonText}>
+                                        {format(date, 'MMM d, yyyy')}
+                                    </Text>
+                                </Pressable>
+                                <Pressable style={styles.dateTimeButton} onPress={showTimepicker}>
+                                    <Text style={styles.dateTimeButtonText}>
+                                        {format(date, 'h:mm a')}
+                                    </Text>
+                                </Pressable>
                             </View>
-                        </TouchableWithoutFeedback>
+
+                            {showPicker && (
+                                <TouchableWithoutFeedback onPress={() => {}}>
+                                    <View style={styles.pickerContainer}>
+                                        <DateTimePicker
+                                            value={date}
+                                            mode={pickerMode}
+                                            is24Hour={false}
+                                            onChange={onChange}
+                                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                        />
+                                    </View>
+                                </TouchableWithoutFeedback>
+                            )}
+                        </>
                     )}
+
+                    <Pressable 
+                        style={styles.checkboxContainer} 
+                        onPress={() => setPollMode(!pollMode)}
+                    >
+                        <MaterialIcons 
+                            name={pollMode ? "check-box" : "check-box-outline-blank"} 
+                            size={24} 
+                            color="#5c8ed6" 
+                        />
+                        <Text style={styles.checkboxLabel}>Poll Availability</Text>
+                    </Pressable>
 
                     <View style={styles.locationContainer}>
                         <MaterialIcons name="location-on" size={20} color="#666" style={styles.locationIcon} />

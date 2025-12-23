@@ -18,14 +18,27 @@ function sortHangouts(hangouts: Hangout[]) {
     return [...hangouts].sort((a, b) => {
         const aTime = a.time;
         const bTime = b.time;
+        const aHasTime = !!aTime;
+        const bHasTime = !!bTime;
+        
+        // Hangouts with no time come first
+        if (!aHasTime && !bHasTime) return 0; // Both no time, maintain order
+        if (!aHasTime) return -1; // a has no time, goes first
+        if (!bHasTime) return 1; // b has no time, goes first
+        
+        // Both have times - check if future or past
         const aIsFuture = aTime > now;
         const bIsFuture = bTime > now;
 
-        // If both are future events or both are past events, sort by closest to now
+        // If both are future events or both are past events, sort appropriately
         if (aIsFuture === bIsFuture) {
-            return aIsFuture 
-                ? aTime - bTime  // Future events: ascending order
-                : bTime - aTime; // Past events: descending order
+            if (aIsFuture) {
+                // Both future: ascending order (closest first)
+                return aTime - bTime;
+            } else {
+                // Both past: descending order (most recent first)
+                return bTime - aTime;
+            }
         }
         
         // If one is future and one is past, future comes first

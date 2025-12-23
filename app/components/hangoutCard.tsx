@@ -11,8 +11,10 @@ interface Props {
 
 export default function HangoutCard({ hangout }: Props) {
     const router = useRouter();
-    const date = new Date(hangout.time);
-    const isPast = date < new Date();
+    // Poll mode hangouts are not past events - they're actively being planned
+    const isPast = hangout.datetimePollInProgress 
+        ? false 
+        : (hangout.time ? new Date(hangout.time) < new Date() : true);
     
     const currentAttendees = Object.keys(hangout.attendees || {}).length;
     const needsMoreAttendees = currentAttendees < (hangout.minAttendees || 2);
@@ -75,9 +77,14 @@ export default function HangoutCard({ hangout }: Props) {
                     styles.time,
                     isPast && { color: '#888' }
                 ]}>
-                    {isPast 
-                        ? formatDistanceToNow(date, { addSuffix: true })
-                        : format(date, 'PPp')}
+                    {hangout.time 
+                        ? (() => {
+                            const date = new Date(hangout.time);
+                            return isPast 
+                                ? formatDistanceToNow(date, { addSuffix: true })
+                                : format(date, 'PPp');
+                        })()
+                        : 'Planning a time!'}
                 </Text>
                 {hangout.location && (
                     <View style={styles.locationContainer}>

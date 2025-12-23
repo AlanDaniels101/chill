@@ -2,7 +2,14 @@ export type Hangout = {
     id: string;
     name: string;
     group: string;
-    time: number;
+    time?: number;
+    datetimePollInProgress?: boolean;
+    candidateDates?: {
+        [timestamp: string]: string;  // timestamp (as string) -> userId who suggested it
+    };
+    datePollSelections?: {
+        [uid: string]: number[];  // User ID to array of selected candidate date timestamps
+    };
     attendees?: {
         [uid: string]: boolean;
     };

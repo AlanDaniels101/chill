@@ -272,7 +272,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         console.log('Foreground FCM message received:', remoteMessage);
               
         // Handle the notification based on its type
-        if (remoteMessage.data?.type === 'new_hangout') {
+        const notificationType = remoteMessage.data?.type;
+        if (notificationType === 'new_hangout' || notificationType === 'poll_closed') {
           const { groupId, hangoutId } = remoteMessage.data;
           const { title, body } = remoteMessage.notification || {};
 

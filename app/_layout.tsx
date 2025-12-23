@@ -13,8 +13,9 @@ export default function RootLayout() {
     // Handle notifications that opened the app from background state
     getMessaging().getInitialNotification().then(remoteMessage => {
       console.log('Initial notification check:', remoteMessage);
-      if (remoteMessage?.data?.type === 'new_hangout') {
-        console.log('Initial notification is new_hangout:', remoteMessage.data);
+      const notificationType = remoteMessage?.data?.type;
+      if (notificationType === 'new_hangout' || notificationType === 'poll_closed') {
+        console.log('Initial notification is hangout-related:', remoteMessage.data);
         const { groupId, hangoutId } = remoteMessage.data;
         if (groupId && hangoutId) {
           console.log('Navigating from killed state to:', `/(tabs)/(groups)/hangout/${hangoutId}`);
@@ -26,8 +27,9 @@ export default function RootLayout() {
     // Handle notifications when app is in background
     const unsubscribe = getMessaging().onNotificationOpenedApp(remoteMessage => {
       console.log('Background notification opened:', remoteMessage);
-      if (remoteMessage?.data?.type === 'new_hangout') {
-        console.log('Background notification is new_hangout:', remoteMessage.data);
+      const notificationType = remoteMessage?.data?.type;
+      if (notificationType === 'new_hangout' || notificationType === 'poll_closed') {
+        console.log('Background notification is hangout-related:', remoteMessage.data);
         const { groupId, hangoutId } = remoteMessage.data;
         if (groupId && hangoutId) {
           console.log('Navigating from background to:', `/(tabs)/(groups)/hangout/${hangoutId}`);
