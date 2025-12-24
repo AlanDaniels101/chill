@@ -1,9 +1,10 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Linking, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { getDatabase } from '@react-native-firebase/database';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../../ctx';
 
 import { Group } from '../../../types'
@@ -25,11 +26,11 @@ export default function Index() {
   const [isScanning, setIsScanning] = useState(false);
   const { userId } = useAuth();
 
-  useEffect(() => {
+  const loadGroups = useCallback(() => {
     if (!userId) {
       setGroups([]);
       setIsLoading(false);
-      return;
+      return () => {};
     }
 
     const db = getDatabase();
@@ -71,11 +72,25 @@ export default function Index() {
     // Subscribe to changes
     userGroupsRef.on('value', onUserGroupsChange);
 
-    // Cleanup listener when component unmounts
+    // Cleanup listener when component unmounts or refocuses
     return () => {
       userGroupsRef.off('value', onUserGroupsChange);
     };
   }, [userId]);
+
+  // Load groups when component mounts
+  useEffect(() => {
+    const cleanup = loadGroups();
+    return cleanup;
+  }, [loadGroups]);
+
+  // Refresh groups when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const cleanup = loadGroups();
+      return cleanup;
+    }, [loadGroups])
+  );
 
   const handleQRScan = (data: string) => {
     setIsScanning(false);
@@ -96,12 +111,24 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <Pressable 
-        style={styles.createButton}
-        onPress={() => setModalVisible(true)}
-      >
-        <Text style={styles.buttonText}>Create New Group</Text>
-      </Pressable>
+      <View style={styles.header}>
+        <Text style={styles.title}>My Groups</Text>
+        <Text style={styles.subtitle}>
+          {groups.length === 0 
+            ? 'Get started by creating or joining a group' 
+            : `${groups.length} ${groups.length === 1 ? 'group' : 'groups'}`}
+        </Text>
+      </View>
+
+      {groups.length > 0 && (
+        <Pressable 
+          style={styles.createButton}
+          onPress={() => setModalVisible(true)}
+        >
+          <MaterialIcons name="add-circle" size={24} color="#fff" />
+          <Text style={styles.buttonText}>New Group</Text>
+        </Pressable>
+      )}
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.groupList}>
         {isLoading ? (
@@ -111,6 +138,9 @@ export default function Index() {
         ) : groups.length === 0 ? (
           <View style={styles.emptyStateContainer}>
             <View style={styles.emptyStateHeader}>
+              <View style={styles.emptyStateIconContainer}>
+                <MaterialIcons name="groups" size={64} color="#5c8ed6" />
+              </View>
               <Text style={styles.emptyStateTitle}>No groups yet!</Text>
               <Text style={styles.emptyStateSubtitle}>Get started by creating or joining a group</Text>
             </View>
@@ -121,7 +151,7 @@ export default function Index() {
                 onPress={() => setModalVisible(true)}
               >
                 <View style={styles.optionIcon}>
-                  <MaterialIcons name="add-circle" size={32} color="#4a7abf" />
+                  <MaterialIcons name="add-circle" size={32} color="#5c8ed6" />
                 </View>
                 <Text style={styles.optionTitle}>Create a New Group</Text>
                 <Text style={styles.optionDescription}>
@@ -134,7 +164,7 @@ export default function Index() {
                 onPress={() => setIsScanning(true)}
               >
                 <View style={styles.optionIcon}>
-                  <MaterialIcons name="qr-code-scanner" size={32} color="#4a7abf" />
+                  <MaterialIcons name="qr-code-scanner" size={32} color="#5c8ed6" />
                 </View>
                 <Text style={styles.optionTitle}>Join a Group</Text>
                 <Text style={styles.optionDescription}>
@@ -174,49 +204,80 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f5f7fa',
+  },
+  header: {
     backgroundColor: '#7dacf9',
-    padding: 16,
-    paddingTop: 32,
+    paddingTop: 60,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 16,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#fff',
+    opacity: 0.9,
   },
   createButton: {
-    backgroundColor: '#4a7abf',
-    padding: 12,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#5c8ed6',
+    borderRadius: 12,
+    margin: 16,
+    padding: 16,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
   },
   groupList: {
-    gap: 16,
-    paddingBottom: 16,
+    gap: 12,
+    padding: 20,
+    paddingBottom: 32,
   },
   groupItem: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 3,
+      height: 2,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
-    minHeight: 100,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#e8e8e8',
   },
   emptyText: {
     color: '#fff',
@@ -235,23 +296,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 40,
   },
   emptyStateHeader: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 40,
+  },
+  emptyStateIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#f0f4ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
   emptyStateTitle: {
-    color: '#fff',
+    color: '#2c3e50',
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 8,
   },
   emptyStateSubtitle: {
-    color: '#fff',
+    color: '#666',
     fontSize: 16,
     textAlign: 'center',
-    opacity: 0.9,
   },
   optionsContainer: {
     width: '100%',
@@ -281,6 +350,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#e8f0ff',
   },
   optionTitle: {
     fontSize: 20,

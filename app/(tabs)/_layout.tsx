@@ -50,6 +50,7 @@ export default function TabLayout() {
         name="(groups)"
         options={{
           title: 'Groups',
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name={focused ? 'people' : 'people-outline'} 

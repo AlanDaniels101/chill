@@ -1,7 +1,8 @@
 import React from 'react';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Text, View, StyleSheet, Pressable, Image, Alert, ScrollView, TextInput, Linking } from 'react-native'
+import { useFocusEffect } from '@react-navigation/native'
 import { Group, Hangout, GroupIcon, User } from '../../../../types'
 import { useAuth } from '../../../../ctx'
 import { getDatabase } from '@react-native-firebase/database';
@@ -66,7 +67,48 @@ export default function GroupPage() {
     const sortedHangouts = useMemo(() => sortHangouts(hangouts || []), [hangouts]);
     const isAdmin = userId && group?.admins?.[userId];
 
-    useEffect(() => {
+    // Function to update header with group info
+    const updateHeader = useCallback((groupData: Group | undefined, currentUserId: string | undefined, editing: boolean) => {
+        if (!groupData) return;
+        const isAdminUser = currentUserId && groupData.admins?.[currentUserId];
+        navigation.setOptions({ 
+            headerTitle: () => (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {groupData.icon?.type === 'material' ? (
+                        <MaterialIcons 
+                            name={groupData.icon.value as any} 
+                            size={24} 
+                            color="#fff" 
+                        />
+                    ) : groupData.icon?.type === 'image' ? (
+                        <Image 
+                            source={{ uri: groupData.icon.value }}
+                            style={{ width: 24, height: 24, borderRadius: 12 }}
+                        />
+                    ) : (
+                        <MaterialIcons 
+                            name="groups" 
+                            size={24} 
+                            color="#fff" 
+                        />
+                    )}
+                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600' }}>
+                        {groupData.name}
+                    </Text>
+                </View>
+            ),
+            headerRight: isAdminUser && !editing ? () => (
+                <Pressable 
+                    onPress={() => setIsEditingIcon(true)}
+                    style={{ marginRight: 16 }}
+                >
+                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '500' }}>Edit</Text>
+                </Pressable>
+            ) : undefined,
+        });
+    }, [navigation]);
+
+    const loadGroupData = useCallback(() => {
         setLoadComplete(false)
 
         const groupRef = getDatabase().ref(`/groups/${id}`);
@@ -121,8 +163,8 @@ export default function GroupPage() {
                 setHangouts(hangouts);
                 setUsers(users);
                 setLoadComplete(true);
-                // Update navigation title with group name from database
-                navigation.setOptions({ title: group.name });
+                // Update navigation header with group info
+                updateHeader(group, userId, isEditingIcon);
             } catch (error: any) {
                 if (error.code === 'PERMISSION_DENIED') {
                     // Redirect to groups page for permission errors
@@ -137,11 +179,39 @@ export default function GroupPage() {
         // Subscribe to changes
         groupRef.on('value', onGroupUpdate);
 
-        // Cleanup listener when component unmounts
+        // Cleanup listener when component unmounts or refocuses
         return () => {
             groupRef.off('value', onGroupUpdate);
         };
-    }, [navigation, id]);
+    }, [id, navigation, router]);
+
+    // Set initial header title immediately to prevent flash
+    useEffect(() => {
+        navigation.setOptions({
+            headerTitle: name || 'Group',
+        });
+    }, [navigation, name]);
+
+    // Load data when component mounts
+    useEffect(() => {
+        const cleanup = loadGroupData();
+        return cleanup;
+    }, [loadGroupData]);
+
+    // Refresh data when screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            const cleanup = loadGroupData();
+            return cleanup;
+        }, [loadGroupData])
+    );
+
+    // Update header when group or editing state changes
+    useEffect(() => {
+        if (group) {
+            updateHeader(group, userId, isEditingIcon);
+        }
+    }, [group, userId, isEditingIcon, updateHeader]);
 
     const handleDeleteGroup = async () => {
         if (!group || !userId) return;
@@ -300,38 +370,6 @@ export default function GroupPage() {
     return (
         <View style={styles.container}>
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-                <View style={styles.header}>
-                    {group?.icon?.type === 'material' ? (
-                        <MaterialIcons 
-                            name={group.icon.value as any} 
-                            size={40} 
-                            color="#2c3e50" 
-                        />
-                    ) : group?.icon?.type === 'image' ? (
-                        <Image 
-                            source={{ uri: group.icon.value }}
-                            style={styles.headerIcon}
-                        />
-                    ) : (
-                        <MaterialIcons 
-                            name="groups" 
-                            size={40} 
-                            color="#2c3e50" 
-                        />
-                    )}
-                    <View style={styles.headerTextContainer}>
-                        <Text style={styles.title}>{group?.name || name}</Text>
-                    </View>
-                    {isAdmin && !isEditingIcon && (
-                        <Pressable 
-                            style={styles.editButton}
-                            onPress={() => setIsEditingIcon(true)}
-                        >
-                            <Text style={styles.editButtonText}>Edit</Text>
-                        </Pressable>
-                    )}
-                </View>
-
                 <Pressable 
                     style={styles.createEventButton}
                     onPress={() => setIsCreatingHangout(true)}
@@ -409,13 +447,13 @@ export default function GroupPage() {
                     </View>
                 )}
 
-                {group?.info && (
+                {group?.info && !isEditingIcon && (
                     <View style={styles.infoSection}>
                         <View style={styles.sectionHeader}>
                             <Text style={styles.sectionTitle}>Info</Text>
                             {isAdmin && (
                                 <Pressable 
-                                    style={styles.editButton}
+                                    style={styles.infoEditButton}
                                     onPress={() => {
                                         setTentativeInfo(group.info || '');
                                         setIsEditingIcon(true);
@@ -425,14 +463,14 @@ export default function GroupPage() {
                                 </Pressable>
                             )}
                         </View>
-                        <Text style={styles.infoText}>
-                            <Linkify 
-                                linkStyle={styles.linkText}
-                                linkDefault={true}
-                            >
+                        <Linkify 
+                            linkStyle={styles.linkText}
+                            linkDefault={true}
+                        >
+                            <Text style={styles.infoText}>
                                 {group.info}
-                            </Linkify>
-                        </Text>
+                            </Text>
+                        </Linkify>
                     </View>
                 )}
 
@@ -634,6 +672,14 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#5c8ed6',
         fontWeight: '500',
+    },
+    infoEditButton: {
+        paddingVertical: 4,
+        paddingHorizontal: 12,
+        backgroundColor: '#e8f0fe',
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#5c8ed6',
     },
     iconSelector: {
         marginBottom: 20,

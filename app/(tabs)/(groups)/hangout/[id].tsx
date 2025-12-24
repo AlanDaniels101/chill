@@ -420,9 +420,10 @@ export default function HangoutPage() {
 
     useEffect(() => {
         setLoadComplete(false);
+        // Set initial header title immediately to prevent flash
         navigation.setOptions({
-            title: `Hangout: ${name}`,
-            headerBackTitle: "Back to Group"
+            headerTitle: name || 'Hangout',
+            headerBackTitle: "Back",
         });
 
         const hangoutRef = getDatabase().ref(`/hangouts/${id}`);
@@ -449,7 +450,39 @@ export default function HangoutPage() {
                     router.replace('/(tabs)/(groups)');
                     return;
                 }
-                setGroup({ id: hangout.group, ...groupData });
+                const groupWithId = { id: hangout.group, ...groupData };
+                setGroup(groupWithId);
+
+                // Update header with group info
+                const headerTitle = () => (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        {groupWithId.icon?.type === 'material' ? (
+                            <MaterialIcons 
+                                name={groupWithId.icon.value as any} 
+                                size={20} 
+                                color="#fff" 
+                            />
+                        ) : groupWithId.icon?.type === 'image' ? (
+                            <Image 
+                                source={{ uri: groupWithId.icon.value }}
+                                style={{ width: 20, height: 20, borderRadius: 10 }}
+                            />
+                        ) : (
+                            <MaterialIcons 
+                                name="groups" 
+                                size={20} 
+                                color="#fff" 
+                            />
+                        )}
+                        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '500' }}>
+                            {groupWithId.name}
+                        </Text>
+                    </View>
+                );
+                navigation.setOptions({
+                    headerTitle: headerTitle,
+                    headerBackTitle: "Back",
+                });
 
                 // Get attendees data
                 if (hangout.attendees) {
@@ -744,13 +777,8 @@ export default function HangoutPage() {
                 contentContainerStyle={styles.scrollViewContent}
             >
                 <View style={styles.content}>
-                    <View style={styles.header}>
-                        <MaterialIcons 
-                            name="event" 
-                            size={40} 
-                            color="#2c3e50" 
-                        />
-                        <Text style={styles.title}>{hangout?.name}</Text>
+                    <View style={styles.hangoutTitleSection}>
+                        <Text style={styles.hangoutTitle}>{hangout?.name}</Text>
                         {/*TODO: Hide the createdBy field and add another mechanism to see if the user can delete the hangout*/}
                         {hangout?.createdBy === userId && 
                          (Object.keys(attendees).length === 0 || 
@@ -929,13 +957,13 @@ const styles = StyleSheet.create({
         paddingBottom: 32,
         backgroundColor: '#fff',
     },
-    header: {
+    hangoutTitleSection: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 16,
         gap: 12,
     },
-    title: {
+    hangoutTitle: {
         fontSize: 24,
         fontWeight: 'bold',
         color: '#2c3e50',
