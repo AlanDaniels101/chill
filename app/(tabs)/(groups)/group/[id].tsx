@@ -108,8 +108,12 @@ export default function GroupPage() {
         });
     }, [navigation]);
 
-    const loadGroupData = useCallback(() => {
-        setLoadComplete(false)
+    const loadGroupData = useCallback((isInitialLoad = false) => {
+        // Only reset loadComplete on initial load, not when refocusing
+        // This prevents flashing when navigating back to the page
+        if (isInitialLoad) {
+            setLoadComplete(false);
+        }
 
         const groupRef = getDatabase().ref(`/groups/${id}`);
         const usersRef = getDatabase().ref('/users');
@@ -194,14 +198,14 @@ export default function GroupPage() {
 
     // Load data when component mounts
     useEffect(() => {
-        const cleanup = loadGroupData();
+        const cleanup = loadGroupData(true); // Initial load
         return cleanup;
     }, [loadGroupData]);
 
-    // Refresh data when screen comes into focus
+    // Refresh data when screen comes into focus (but don't show loading state)
     useFocusEffect(
         useCallback(() => {
-            const cleanup = loadGroupData();
+            const cleanup = loadGroupData(false); // Refocus - keep existing content visible
             return cleanup;
         }, [loadGroupData])
     );

@@ -422,7 +422,7 @@ export default function HangoutPage() {
         setLoadComplete(false);
         // Set initial header title immediately to prevent flash
         navigation.setOptions({
-            headerTitle: name || 'Hangout',
+            headerTitle: '',
             headerBackTitle: "Back",
         });
 
@@ -480,7 +480,7 @@ export default function HangoutPage() {
                     </View>
                 );
                 navigation.setOptions({
-                    headerTitle: headerTitle,
+                    headerTitle: hangout.name,
                     headerBackTitle: "Back",
                 });
 
