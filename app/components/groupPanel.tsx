@@ -15,7 +15,7 @@ const GroupPanel: React.FC<GroupPanelProps> = ({group}) => {
     const icon = group.icon || defaultIcon;
     const [nextHangout, setNextHangout] = useState<{ name: string; time: number } | null>(null);
     const [hangoutCount, setHangoutCount] = useState(0);
-    const memberCount = Object.keys(group.members || {}).length + Object.keys(group.admins || {}).length;
+    const memberCount = Object.keys(group.members || {}).length;
 
     useEffect(() => {
         const hangoutIds = Object.keys(group.hangouts || {});
