@@ -19,7 +19,13 @@ const PhoneInputWrapper = React.forwardRef((props: any, ref) => {
 });
 
 export default function Login() {
-  const { verifyPhoneNumber, confirmVerificationCode, isLoading } = useAuth();
+  const {
+    verifyPhoneNumber,
+    confirmVerificationCode,
+    isLoading,
+    appCheckStatus,
+    appCheckError,
+  } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [formattedPhoneNumber, setFormattedPhoneNumber] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
@@ -39,7 +45,11 @@ export default function Login() {
 
   const handleCodeSubmit = async () => {
     if (confirmationResult && verificationCode) {
-      await confirmVerificationCode(confirmationResult, verificationCode);
+      try {
+        await confirmVerificationCode(confirmationResult, verificationCode);
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
@@ -60,7 +70,7 @@ export default function Login() {
           <MaterialIcons name="ac-unit" size={80} color="#ffffff" style={styles.icon} />
           <Text style={styles.title}>Chill</Text>
           <Text style={styles.subtitle}>Sustain meaningful connections!</Text>
-          
+
           {step === 'phone' ? (
             <>
               <View style={styles.phoneInputContainer}>
@@ -129,8 +139,37 @@ export default function Login() {
                 <MaterialIcons name="check" size={24} color="#7dacf9" style={styles.buttonIcon} />
                 <Text style={styles.buttonText}>Verify Code</Text>
               </Pressable>
+
             </>
           )}
+        </View>
+
+        <View style={styles.footerStatus}>
+          <View style={[
+            styles.appCheckBadge,
+            appCheckStatus === 'success'
+              ? styles.appCheckBadgeSuccess
+              : styles.appCheckBadgeError,
+          ]}>
+            <MaterialIcons
+              name={appCheckStatus === 'success' ? 'verified-user' : 'error-outline'}
+              size={18}
+              color="#ffffff"
+              style={styles.appCheckIcon}
+            />
+            <Text style={styles.appCheckText}>
+              App protection: {appCheckStatus === 'success' ? 'active' : 'failed'}
+            </Text>
+          </View>
+
+          {appCheckError && appCheckStatus !== 'success' ? (
+            <View style={styles.appCheckErrorContainer}>
+              <Text style={styles.appCheckErrorLabel}>Reason:</Text>
+              <Text style={styles.appCheckErrorText} numberOfLines={2}>
+                {appCheckError}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </>
@@ -163,6 +202,64 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#ffffff',
     marginBottom: 24,
+  },
+  appCheckBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    marginBottom: 24,
+    backgroundColor: '#ffffff30',
+  },
+  appCheckBadgeSuccess: {
+    backgroundColor: '#27ae6040',
+  },
+  appCheckBadgeError: {
+    backgroundColor: '#e74c3c40',
+  },
+  appCheckBadgeEmpty: {
+    backgroundColor: '#f39c1240',
+  },
+  appCheckBadgePending: {
+    backgroundColor: '#f1c40f40',
+  },
+  appCheckIcon: {
+    marginRight: 6,
+  },
+  appCheckText: {
+    color: '#ffffff',
+    fontSize: 13,
+  },
+  appCheckErrorContainer: {
+    marginTop: 6,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+  },
+  appCheckErrorLabel: {
+    color: '#ffffffcc',
+    fontSize: 11,
+    marginBottom: 2,
+  },
+  appCheckErrorText: {
+    color: '#ffffffaa',
+    fontSize: 11,
+  },
+  authErrorContainer: {
+    marginTop: 12,
+    paddingHorizontal: 12,
+  },
+  authErrorText: {
+    color: '#ffdddd',
+    fontSize: 13,
+  },
+  footerStatus: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 24,
+    width: '100%',
+    alignItems: 'center',
   },
   phoneInputContainer: {
     width: '90%',

@@ -23,7 +23,11 @@
       "infoPlist": {
         "UIBackgroundModes": ["remote-notification"],
         "NSCameraUsageDescription": "Turning on camera access allows the app to scan QR codes to invite people to a group.",
-        "NSCalendarsUsageDescription": "Calendar access allows you to add hangouts to your calendar."
+        "NSCalendarsUsageDescription": "Calendar access allows you to add hangouts to your calendar.",
+        "LSApplicationQueriesSchemes": [
+          "recaptchaenterprise",
+          "googleapis"
+        ]
       }
     },
     "android": {
@@ -67,6 +71,7 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "@react-native-firebase/app-check",
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       [

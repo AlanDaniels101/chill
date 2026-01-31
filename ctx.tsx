@@ -8,6 +8,9 @@ import { getAuth } from '@react-native-firebase/auth'
 import { getDatabase } from '@react-native-firebase/database';
 import { getMessaging, AuthorizationStatus } from '@react-native-firebase/messaging';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import appCheck from '@react-native-firebase/app-check';
+
+type AppCheckStatus = 'pending' | 'success' | 'empty' | 'error';
 
 const requestNotificationPermission = async () => {
   try {
@@ -50,6 +53,89 @@ const checkNotificationPermission = async () => {
   }
 };
 
+// Initialize App Check early, before any Firebase services are used
+// Following the official React Native Firebase documentation pattern:
+// https://rnfirebase.io/app-check/usage
+const setupAppCheck = async (
+  onStatusChange?: (status: AppCheckStatus) => void,
+  onErrorChange?: (error: string | null) => void,
+) => {
+  try {
+    onStatusChange?.('pending');
+    onErrorChange?.(null);
+
+    // Create and configure the custom provider
+    const rnfbProvider = appCheck().newReactNativeFirebaseAppCheckProvider();
+    
+    // Configure provider based on platform and environment
+    // Debug tokens are registered in the Firebase Console
+
+    rnfbProvider.configure({
+      android: {
+        provider: __DEV__ ? 'debug' : 'playIntegrity',
+        ...(__DEV__ && { debugToken: '' }),
+      },
+      apple: {
+        provider: __DEV__ ? 'debug' : 'appAttestWithDeviceCheckFallback',
+        ...(__DEV__ &&  { debugToken: '' }),
+      },
+    });
+    
+    // Initialize App Check with the custom provider on the default app
+    await appCheck().initializeAppCheck({
+      provider: rnfbProvider,
+      isTokenAutoRefreshEnabled: true,
+    });
+
+    // Verify App Check was initialized correctly
+    try {
+      const { token } = await appCheck().getToken(true);
+      if (token.length > 0) {
+        onStatusChange?.('success');
+        onErrorChange?.(null);
+      } else {
+        onStatusChange?.('empty');
+        onErrorChange?.('App Check returned an empty token.');
+      }
+    } catch (tokenError) {
+      console.warn('App Check token verification failed:', tokenError);
+      onStatusChange?.('error');
+      const message =
+        (tokenError as any)?.message ??
+        (typeof tokenError === 'string' ? tokenError : 'Unknown App Check token error');
+      onErrorChange?.(message);
+    }
+
+    // No explicit instance returned from initializeAppCheck in this API,
+    // we just return null to satisfy the function signature.
+    return null;
+  } catch (error) {
+    console.error('App Check initialization failed:', error);
+    onStatusChange?.('error');
+    const message =
+      (error as any)?.message ??
+      (typeof error === 'string' ? error : 'Unknown App Check initialization error');
+    onErrorChange?.(message);
+    // Don't throw - allow app to continue even if App Check fails
+    // This prevents blocking the app during development/testing
+    return null;
+  }
+};
+
+type AuthContextType = {
+  verifyPhoneNumber: (phoneNumber: string) => Promise<FirebaseAuthTypes.ConfirmationResult | null>;
+  confirmVerificationCode: (confirmationResult: any, code: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
+  userId: string;
+  isLoading: boolean;
+  notificationsEnabled: boolean;
+  toggleNotifications: (groupId: string, enabled: boolean) => Promise<boolean>;
+  checkNotificationStatus: (groupId: string) => Promise<boolean>;
+  appCheckStatus: AppCheckStatus;
+  appCheckError: string | null;
+};
+
 export const generateRandomDefaultName = (userId: string) => {
   const funNames = [
     'Mysterious Person', 'Secret Friend', 'Cool Cat', 'Mystery Guest',
@@ -74,24 +160,31 @@ export const generateRandomDefaultName = (userId: string) => {
   return `${selectedName} (${fourDigitNumber})`;
 };
 
-const AuthContext = createContext(
-  {
-    verifyPhoneNumber: async (phoneNumber: string) => Promise.resolve<FirebaseAuthTypes.ConfirmationResult | null>(null),
-    confirmVerificationCode: async (confirmationResult: any, code: string) => {},
-    signOut: async () => {},
-    deleteAccount: async () => {},
-    userId: '',
-    isLoading: true,
-    notificationsEnabled: false,
-    toggleNotifications: async (groupId: string, enabled: boolean): Promise<boolean> => false,
-    checkNotificationStatus: async (groupId: string): Promise<boolean> => false,
-  }
-)
+const AuthContext = createContext<AuthContextType>({
+  verifyPhoneNumber: async () => Promise.resolve<FirebaseAuthTypes.ConfirmationResult | null>(null),
+  confirmVerificationCode: async () => {},
+  signOut: async () => {},
+  deleteAccount: async () => {},
+  userId: '',
+  isLoading: true,
+  notificationsEnabled: false,
+  toggleNotifications: async () => false,
+  checkNotificationStatus: async () => false,
+  appCheckStatus: 'pending',
+  appCheckError: null,
+});
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
     const [userId, setUserId] = useState('')
     const [isLoading, setIsLoading] = useState(true)
     const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+    const [appCheckStatus, setAppCheckStatus] = useState<AppCheckStatus>('pending');
+    const [appCheckError, setAppCheckError] = useState<string | null>(null);
+
+    // Initialize App Check when the auth provider mounts
+    useEffect(() => {
+      setupAppCheck(setAppCheckStatus, setAppCheckError);
+    }, []);
 
     const verifyPhoneNumber = async (phoneNumber: string) => {
       try {
@@ -99,7 +192,6 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         const result = await getAuth().signInWithPhoneNumber(phoneNumber, true)
         return result
       } catch (e) {
-        console.log(e)
         return null
       } finally {
         setIsLoading(false)
@@ -110,14 +202,17 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       try {
         setIsLoading(true)
         await confirmationResult.confirm(code)
+
         const user = getAuth().currentUser
         if (user) {
+          console.log('[Auth] User authenticated:', user.uid)
           const db = getDatabase();
           const userRef = db.ref('users').child(user.uid);
           
           // Check if user already exists
           const snapshot = await userRef.once('value');
           if (!snapshot.exists()) {
+            console.log('[Auth] Creating new user profile:', user.uid)
             // Generate random name for new users
             const randomName = generateRandomDefaultName(user.uid);
             
@@ -128,9 +223,11 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
               createdAt: new Date().toISOString(),
               lastActive: new Date().toISOString(),
             });
+            console.log('[Auth] New user profile created, redirecting to profile page')
             // Redirect new users to profile page
             router.replace('/(tabs)/profile');
           } else {
+            console.log('[Auth] Existing user found, updating profile')
             // Check if existing user needs a random name (migration)
             const userData = snapshot.val();
             if (!userData.name) {
@@ -148,7 +245,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           }
         }
       } catch (e) {
-        console.log(e)
+        console.error(e);
       } finally {
         setIsLoading(false)
       }
@@ -363,6 +460,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           notificationsEnabled,
           toggleNotifications,
           checkNotificationStatus,
+          appCheckStatus,
+          appCheckError,
         }}>
         {children}
       </AuthContext.Provider>
