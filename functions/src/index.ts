@@ -12,16 +12,67 @@ import * as logger from "firebase-functions/logger";
 import {formatDistanceToNow} from "date-fns";
 
 import {initializeApp} from "firebase-admin/app";
-// import {getAuth} from "firebase-admin/auth";
 import {getDatabase} from "firebase-admin/database";
 import {getMessaging} from "firebase-admin/messaging";
 import {onValueCreated, onValueDeleted} from "firebase-functions/v2/database";
+import {onMessagePublished} from "firebase-functions/v2/pubsub";
 import {FirebaseError} from "firebase-admin";
+import {getAuth} from "firebase-admin/auth";
 
 initializeApp();
 
-// const auth = getAuth();
+const auth = getAuth();
 const database = getDatabase();
+
+/**
+ * Pub/Sub topic name for GCP billing budget alerts. Create this topic in
+ * Cloud Console (Pub/Sub), then add it to your budget's programmatic
+ * notifications (Billing → Budgets & alerts → Edit budget → Manage
+ * notifications → Add Pub/Sub topic).
+ */
+const BILLING_ALERT_TOPIC = "billing-budget-alerts";
+
+/**
+ * When a billing budget threshold alert is published to the configured
+ * Pub/Sub topic, disables phone authentication by setting SMS region config
+ * to an empty allowlist (no regions allowed = no phone sign-in).
+ * Firebase does not expose a "disable phone provider" API; the empty
+ * allowlist is the only programmatic way to achieve the same effect.
+ * Requires the topic to exist and be attached to your budget.
+ */
+export const disablePhoneAuthOnBillingAlert = onMessagePublished(
+    BILLING_ALERT_TOPIC,
+    async (event) => {
+      const message = event.data?.message;
+      const data = message?.data;
+      let notification: Record<string, unknown> = {};
+      if (data) {
+        try {
+          const decoded = Buffer.from(data, "base64").toString("utf-8");
+          notification = JSON.parse(decoded) as Record<string, unknown>;
+        } catch (e) {
+          logger.warn("Failed to decode billing notification", e);
+        }
+      }
+      logger.info("Billing alert received, disabling phone auth", {
+        budgetDisplayName: notification?.budgetDisplayName,
+        costAmount: notification?.costAmount,
+        alertThresholdExceeded: notification?.alertThresholdExceeded,
+      });
+
+      try {
+        await auth.projectConfigManager().updateProjectConfig({
+          smsRegionConfig: {
+            allowlistOnly: {allowedRegions: []},
+          },
+        });
+        logger.info("Phone authentication disabled via SMS region allowlist (no regions allowed).");
+      } catch (err) {
+        logger.error("Failed to disable phone auth", err);
+        throw err;
+      }
+    }
+);
 
 /** Request payload for logPhoneAuthAttempt callable */
 interface LogPhoneAuthAttemptRequest {
