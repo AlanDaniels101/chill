@@ -9,6 +9,7 @@ import { getDatabase } from '@react-native-firebase/database';
 import { getMessaging, AuthorizationStatus } from '@react-native-firebase/messaging';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import appCheck from '@react-native-firebase/app-check';
+import * as Application from 'expo-application';
 
 type AppCheckStatus = 'pending' | 'success' | 'empty' | 'error';
 
@@ -50,6 +51,30 @@ const checkNotificationPermission = async () => {
   } catch (error) {
     console.error('Error checking notification permission:', error);
     return false;
+  }
+};
+
+/** Gather device/environment info for logging (e.g. phone auth attempts). */
+const getDeviceInfo = async (): Promise<Record<string, unknown>> => {
+  try {
+    const info: Record<string, unknown> = {
+      platform: Platform.OS,
+      platformVersion: Platform.Version,
+      applicationId: Application.applicationId ?? null,
+      nativeBuildVersion: Application.nativeBuildVersion ?? null,
+      nativeApplicationVersion: Application.nativeApplicationVersion ?? null,
+      isDev: __DEV__,
+    };
+    if (Platform.OS === 'android') {
+      try {
+        info.androidId = Application.getAndroidId();
+      } catch {
+        info.androidId = null;
+      }
+    }
+    return info;
+  } catch (e) {
+    return { error: (e as Error)?.message ?? 'unknown' };
   }
 };
 
@@ -188,13 +213,27 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
     const verifyPhoneNumber = async (phoneNumber: string) => {
       try {
-        setIsLoading(true)
-        const result = await getAuth().signInWithPhoneNumber(phoneNumber, true)
-        return result
+        setIsLoading(true);
+        // Log phone auth attempt via callable URL (fire-and-forget; don't block or fail login)
+        try {
+          const deviceInfo = await getDeviceInfo();
+          const projectId = getAuth().app.options.projectId;
+          const region = 'us-central1';
+          const url = `https://${region}-${projectId}.cloudfunctions.net/logPhoneAuthAttempt`;
+          await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: { phoneNumber, deviceInfo } }),
+          });
+        } catch (logError) {
+          console.warn('[Auth] Failed to log phone auth attempt:', logError);
+        }
+        const result = await getAuth().signInWithPhoneNumber(phoneNumber, true);
+        return result;
       } catch (e) {
-        return null
+        return null;
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
     }
 

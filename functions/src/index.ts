@@ -7,7 +7,7 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-// import {onRequest} from "firebase-functions/v2/https";
+import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {formatDistanceToNow} from "date-fns";
 
@@ -22,6 +22,33 @@ initializeApp();
 
 // const auth = getAuth();
 const database = getDatabase();
+
+/** Request payload for logPhoneAuthAttempt callable */
+interface LogPhoneAuthAttemptRequest {
+  phoneNumber: string;
+  deviceInfo?: Record<string, unknown>;
+}
+
+/**
+ * Callable function to log phone auth attempts (signInWithPhoneNumber).
+ * Called from the client when a user attempts phone sign-in.
+ */
+export const logPhoneAuthAttempt = onCall<LogPhoneAuthAttemptRequest>(
+    {enforceAppCheck: false},
+    async (request) => {
+      const {phoneNumber, deviceInfo} = request.data || {};
+      if (typeof phoneNumber !== "string" || !phoneNumber.trim()) {
+        throw new HttpsError("invalid-argument", "phoneNumber is required and must be a non-empty string.");
+      }
+      const payload = {
+        phoneNumber: phoneNumber.trim(),
+        deviceInfo: deviceInfo && typeof deviceInfo === "object" ? deviceInfo : {},
+        timestamp: Date.now(),
+      };
+      logger.info("Phone auth attempt", payload);
+      return {success: true};
+    }
+);
 const messaging = getMessaging();
 
 /**
