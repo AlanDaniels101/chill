@@ -2,7 +2,7 @@
   "expo": {
     "name": "Chill - Hangouts",
     "slug": "chill",
-    "version": "1.0.3",
+    "version": "1.0.6",
     "scheme": "chill",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
