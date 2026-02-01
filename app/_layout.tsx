@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import { getDatabase } from '@react-native-firebase/database';
 import { getAuth } from '@react-native-firebase/auth';
 import { Linking } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -156,25 +157,27 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <AuthProvider>
-      <Stack
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: '#7dacf9',
-          },
-          headerTintColor: '#fff',
-          headerShadowVisible: false,
-          gestureEnabled: true,
-          gestureDirection: 'horizontal',
-          animation: 'slide_from_right',
-          presentation: 'card',
-          navigationBarColor: '#7dacf9',
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <FlashMessage position="top" />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <Stack
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: '#7dacf9',
+            },
+            headerTintColor: '#fff',
+            headerShadowVisible: false,
+            gestureEnabled: true,
+            gestureDirection: 'horizontal',
+            animation: 'slide_from_right',
+            presentation: 'card',
+            navigationBarColor: '#7dacf9',
+          }}
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <FlashMessage position="top" />
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

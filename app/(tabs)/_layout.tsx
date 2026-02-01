@@ -3,9 +3,15 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '../../ctx';
 import LoadingScreen from '../components/LoadingScreen';
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 68;
+// Android 15+ edge-to-edge often reports 0 for bottom inset; use a fallback so the tab bar sits above the system nav bar (~48dp for 3-button nav, ~24–32 for gesture)
+const ANDROID_NAV_BAR_FALLBACK = 48;
 
 export default function TabLayout() {
-  const { userId, isLoading } = useAuth()
+  const { userId, isLoading } = useAuth();
+  const insets = useSafeAreaInsets();
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -14,9 +20,16 @@ export default function TabLayout() {
   if (!userId) {
     return <Redirect href="/login" />
   }
-  
+
+  // Use real inset or fallback on Android when edge-to-edge reports 0
+  const bottomInset =
+    Platform.OS === 'android'
+      ? Math.max(insets.bottom, ANDROID_NAV_BAR_FALLBACK)
+      : insets.bottom;
+
   return (
     <Tabs
+      safeAreaInsets={{ bottom: bottomInset }}
       screenOptions={{
         tabBarActiveTintColor: '#ffffff',
         tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.4)',
@@ -29,8 +42,8 @@ export default function TabLayout() {
           backgroundColor: '#7dacf9',
           borderTopWidth: 0,
           elevation: 0,
-          height: Platform.OS === 'ios' ? 88 : 68,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+          height: TAB_BAR_HEIGHT + (Platform.OS === 'android' ? bottomInset : 0),
+          paddingBottom: Platform.OS === 'ios' ? 28 : 12 + bottomInset,
           paddingTop: 8,
           shadowColor: '#000',
           shadowOffset: {
