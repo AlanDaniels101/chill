@@ -14,6 +14,9 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "associatedDomains": [
+        "applinks:chillhangouts.ca"
+      ],
       "supportsTablet": true,
       "bundleIdentifier": "com.alan101.chill",
       "googleServicesFile": "./GoogleService-Info.plist",
@@ -40,10 +43,12 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "autoVerify": false,
+          "autoVerify": true,
           "data": [
             {
-              "scheme": "chill"
+              "scheme": "https",
+              "host": "*.chillhangouts.ca",
+              "path": "/app"
             }
           ],
           "category": [

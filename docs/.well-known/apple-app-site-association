@@ -1,0 +1,17 @@
+{
+    "applinks": {
+      "apps": [],
+      "details": [
+        {
+          "appID": "KGL68JJ2K7.com.alan101.chill",
+          "paths": ["/app"]
+        }
+      ]
+    },
+    "activitycontinuation": {
+      "apps": ["KGL68JJ2K7.com.alan101.chill"]
+    },
+    "webcredentials": {
+      "apps": ["KGL68JJ2K7.com.alan101.chill"]
+    }
+  }

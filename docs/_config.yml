@@ -1,2 +1,3 @@
 title: Chill
 theme: minima
+include: [.well-known]
