@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chill – Open in App</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f5f5f7;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 24px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 48px 40px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+
+    .logo {
+      width: 88px;
+      height: 88px;
+      border-radius: 20px;
+      margin: 0 auto 24px;
+      overflow: hidden;
+    }
+
+    .logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #1d1d1f;
+      margin-bottom: 12px;
+    }
+
+    p {
+      font-size: 1rem;
+      color: #555;
+      line-height: 1.6;
+      margin-bottom: 36px;
+    }
+
+    .badges {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .badge-link {
+      display: inline-block;
+      text-decoration: none;
+    }
+
+    .badge-link img {
+      height: 54px;
+      display: block;
+    }
+
+    .badge-disabled {
+      display: inline-block;
+      text-decoration: none;
+      cursor: default;
+      pointer-events: none;
+      position: relative;
+    }
+
+    .badge-disabled img {
+      height: 54px;
+      display: block;
+      filter: grayscale(1) opacity(0.4);
+    }
+
+    .badge-disabled .beta-label {
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #888;
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .badge-wrapper {
+      padding-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <img src="icon.png" alt="Chill" />
+    </div>
+
+    <h1>Chill</h1>
+    <p>You should see an option to open this link in the Chill&nbsp;app.<br>If not, please download the app.</p>
+
+    <div class="badges">
+      <!-- App Store -->
+      <a class="badge-link" href="https://apps.apple.com/us/app/chill-hangouts/id6744852495" target="_blank" rel="noopener">
+        <img
+          src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg"
+          alt="Download on the App Store"
+        />
+      </a>
+
+      <!-- Google Play – greyed out / closed beta -->
+      <div class="badge-wrapper">
+        <span class="badge-disabled" aria-label="Google Play – in closed beta">
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
+            alt="Get it on Google Play"
+          />
+          <span class="beta-label">In closed beta</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

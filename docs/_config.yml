@@ -1,3 +1,10 @@
 title: Chill
 theme: minima
 include: [.well-known]
+
+defaults:
+  - scope:
+      path: "app.html"
+    values:
+      layout: none
+      permalink: /app/
