@@ -8,6 +8,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../../../ctx';
 import Linkify from 'react-native-linkify';
 import * as Linking from 'expo-linking';
+import { hangoutLink } from '../../../constants';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import * as Calendar from 'expo-calendar';
@@ -127,9 +128,9 @@ export default function HangoutPage() {
 
     const handleShare = async () => {
         try {
-            const appLink = `chill://hangout/${id}`;
+            const appLink = hangoutLink(id as string);
             const message = `Join our hangout "${hangout?.name}" on Chill!\n\n` +
-                `Open in the Chill app: chill://hangout/${id}`;
+                `Open in the Chill app: ${appLink}`;
             
             await Share.share({
                 message,

@@ -4,6 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { getDatabase } from '@react-native-firebase/database';
 import QRCode from 'react-native-qrcode-svg';
 import QRScanner from './QRScanner';
+import { joinGroupLink } from '../constants';
 
 type Props = {
     visible: boolean;
@@ -66,7 +67,7 @@ export default function AddMemberModal({ visible, groupId, onClose }: Props) {
             const groupSnapshot = await getDatabase().ref(`/groups/${groupId}`).once('value');
             const groupName = groupSnapshot.val()?.name || 'our group';
             
-            const appLink = `chill://join-group/${groupId}`;
+            const appLink = joinGroupLink(groupId);
             
             const message = `Join ${groupName} on Chill!\n\n` +
                 `If you have Chill installed, tap this link to join: ${appLink}\n\n` +
@@ -107,7 +108,7 @@ export default function AddMemberModal({ visible, groupId, onClose }: Props) {
                     <View style={styles.qrContainer}>
                         <Text style={styles.qrTitle}>Share this QR code:</Text>
                         <QRCode
-                            value={`chill://join-group/${groupId}`}
+                            value={joinGroupLink(groupId)}
                             size={200}
                         />
                         <Text style={styles.qrInstructions}>

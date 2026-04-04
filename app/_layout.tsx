@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import { AuthProvider } from '../ctx';
-import FlashMessage from 'react-native-flash-message';
+import FlashMessage, { showMessage } from 'react-native-flash-message';
 import { useEffect } from 'react';
 import { getMessaging } from '@react-native-firebase/messaging';
 import { router } from 'expo-router';
@@ -39,12 +39,11 @@ export default function RootLayout() {
       }
     });
 
-    // Handle deep links
+    // Handle deep links (App Links / Universal Links and legacy chill://)
     const handleDeepLink = async (url: string) => {
       try {
         console.log('[DeepLink] Starting deep link handling for URL:', url);
         
-        // Get current user from Firebase auth
         const currentUser = getAuth().currentUser;
         if (!currentUser) {
           console.log('[DeepLink] User not authenticated, redirecting to login');
@@ -55,14 +54,55 @@ export default function RootLayout() {
         const userId = currentUser.uid;
         console.log('[DeepLink] Current user ID:', userId);
 
-        // Parse the URL to get the hangout ID
-        const match = url.match(/hangout\/([^\/]+)/);
-        if (!match) {
-          console.log('[DeepLink] No hangout ID found in URL');
+        // Normalize path: https://chillhangouts.ca/app/hangout/123 -> hangout/123; chill://hangout/123 -> hangout/123
+        let path: string;
+        if (url.startsWith('chill://')) {
+          path = url.slice('chill://'.length).replace(/^\/+/, '');
+        } else {
+          try {
+            const parsed = new URL(url);
+            const match = parsed.pathname.match(/\/app\/?(.*)$/);
+            path = match ? match[1] || '' : parsed.pathname.replace(/^\/+/, '');
+          } catch {
+            console.log('[DeepLink] Invalid URL');
+            return;
+          }
+        }
+
+        // Handle join-group/:groupId
+        const joinGroupMatch = path.match(/^join-group\/([^\/]+)/);
+        if (joinGroupMatch) {
+          const groupId = joinGroupMatch[1];
+          console.log('[DeepLink] Join group:', groupId);
+          const [groupMemberSnapshot, groupNameSnapshot] = await Promise.all([
+            getDatabase().ref(`/groups/${groupId}/members/${userId}`).once('value'),
+            getDatabase().ref(`/groups/${groupId}/name`).once('value'),
+          ]);
+          if (!groupMemberSnapshot.exists() || groupMemberSnapshot.val() !== true) {
+            await Promise.all([
+              getDatabase().ref(`/groups/${groupId}/members/${userId}`).set(true),
+              getDatabase().ref(`/users/${userId}/groups/${groupId}`).set(true)
+            ]);
+            const groupName = groupNameSnapshot.val();
+            showMessage({
+              message: `You've been added to group: ${groupName ?? '?'}`,
+              type: 'success',
+              duration: 4000,
+            });
+          }
+          router.replace('/(tabs)/(groups)');
+          router.push(`/(tabs)/(groups)/group/${groupId}`);
+          return;
+        }
+
+        // Handle hangout/:id
+        const hangoutMatch = path.match(/^hangout\/([^\/]+)/);
+        if (!hangoutMatch) {
+          console.log('[DeepLink] Unknown path:', path);
           return;
         }
         
-        const hangoutId = match[1];
+        const hangoutId = hangoutMatch[1];
         console.log('[DeepLink] Extracted hangout ID:', hangoutId);
         
         // Get the group ID from the hangout
@@ -82,44 +122,29 @@ export default function RootLayout() {
         
         // Check if user is member of the group
         console.log(`[DeepLink] Checking if user ${userId} is member of group:`, groupId);
-        const groupMemberSnapshot = await getDatabase()
-          .ref(`/groups/${groupId}/members/${userId}`)
-          .once('value');
+        const [groupMemberSnapshot, groupNameSnapshot] = await Promise.all([
+          getDatabase().ref(`/groups/${groupId}/members/${userId}`).once('value'),
+          getDatabase().ref(`/groups/${groupId}/name`).once('value'),
+        ]);
 
-        console.log('[DeepLink] Member snapshot:', groupMemberSnapshot.val());
-        
-        // Log all group members
-        const groupMembersSnapshot = await getDatabase()
-          .ref(`/groups/${groupId}/members`)
-          .once('value');
-        console.log('[DeepLink] Group members:', groupMembersSnapshot.val());
-        
         if (!groupMemberSnapshot.exists() || groupMemberSnapshot.val() !== true) {
-          console.log('[DeepLink] User not a member, adding to group');
-          // User is not a member of the group, join the group first
           await Promise.all([
-            // Add user to group's members
-            getDatabase()
-              .ref(`/groups/${groupId}/members/${userId}`)
-              .set(true),
-            // Add group to user's groups
-            getDatabase()
-              .ref(`/users/${userId}/groups/${groupId}`)
-              .set(true)
+            getDatabase().ref(`/groups/${groupId}/members/${userId}`).set(true),
+            getDatabase().ref(`/users/${userId}/groups/${groupId}`).set(true)
           ]);
-          console.log('[DeepLink] Successfully added user to group');
-          
-          // Log updated group members
-          const updatedGroupMembersSnapshot = await getDatabase()
-            .ref(`/groups/${groupId}/members`)
-            .once('value');
-          console.log('[DeepLink] Updated group members:', updatedGroupMembersSnapshot.val());
-        } else {
-          console.log('[DeepLink] User is already a member of the group');
+          const groupName = groupNameSnapshot.val();
+          showMessage({
+            message: `You've been added to group: ${groupName ?? '?'}`,
+            type: 'success',
+            duration: 4000,
+          });
         }
         
-        // Navigate to the hangout
+        // Navigate to the hangout with the group as the back destination.
+        // replace clears the deep link loading screen from the stack, then
+        // push puts the hangout on top so back returns to the group.
         console.log('[DeepLink] Navigating to hangout:', hangoutId);
+        router.replace(`/(tabs)/(groups)/group/${groupId}`);
         router.push(`/(tabs)/(groups)/hangout/${hangoutId}`);
       } catch (error: any) {
         console.error('[DeepLink] Error handling deep link:', error);

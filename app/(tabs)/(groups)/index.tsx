@@ -94,13 +94,12 @@ export default function Index() {
 
   const handleQRScan = (data: string) => {
     setIsScanning(false);
-    // Check if it's a valid chill:// URL
-    if (data.startsWith('chill://join-group/')) {
-      // Use the deep link system by opening the URL
-      // This will trigger the deep link handler in _layout.tsx
+    const isChillJoinGroup =
+      data.startsWith('chill://join-group/') ||
+      /^https:\/\/[^/]+\/app\/join-group\/[^/]+/.test(data.trim());
+    if (isChillJoinGroup) {
       Linking.openURL(data);
     } else {
-      // If it's not a valid chill:// URL, show an alert
       Alert.alert(
         'Invalid QR Code',
         'Couldn\'t recognize this QR code. Please make sure you\'re scanning a Chill group invite QR code.',

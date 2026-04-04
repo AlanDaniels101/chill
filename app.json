@@ -2,7 +2,7 @@
   "expo": {
     "name": "Chill - Hangouts",
     "slug": "chill",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "scheme": "chill",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -47,8 +47,8 @@
           "data": [
             {
               "scheme": "https",
-              "host": "*.chillhangouts.ca",
-              "path": "/app"
+              "host": "chillhangouts.ca",
+              "pathPrefix": "/app"
             }
           ],
           "category": [
