@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Text, View, StyleSheet, Pressable, ActivityIndicator, TextInput } from 'react-native';
+import { Text, View, StyleSheet, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAuth } from '../ctx';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
@@ -55,7 +55,7 @@ export default function Login() {
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <ActivityIndicator size="large" color="#ffffff" />
       </View>
@@ -66,6 +66,10 @@ export default function Login() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <View style={styles.content}>
           <MaterialIcons name="ac-unit" size={80} color="#ffffff" style={styles.icon} />
           <Text style={styles.title}>Chill</Text>
@@ -143,6 +147,7 @@ export default function Login() {
             </>
           )}
         </View>
+      </KeyboardAvoidingView>
 
         <View style={styles.footerStatus}>
           <View style={[
@@ -180,6 +185,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#7dacf9',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
