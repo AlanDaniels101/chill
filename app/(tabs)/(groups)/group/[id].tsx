@@ -2,7 +2,7 @@ import React from 'react';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Text, View, StyleSheet, Pressable, Image, Alert, ScrollView, TextInput, Linking } from 'react-native'
-import { useFocusEffect } from '@react-navigation/native'
+import { useFocusEffect } from "expo-router/react-navigation"
 import { Group, Hangout, GroupIcon, User } from '../../../../types'
 import { useAuth } from '../../../../ctx'
 import { getDatabase } from '@react-native-firebase/database';

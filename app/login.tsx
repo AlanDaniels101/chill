@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Text, View, StyleSheet, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../ctx';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
@@ -26,6 +27,7 @@ export default function Login() {
     appCheckStatus,
     appCheckError,
   } = useAuth();
+  const insets = useSafeAreaInsets();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [formattedPhoneNumber, setFormattedPhoneNumber] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
@@ -149,7 +151,7 @@ export default function Login() {
         </View>
       </KeyboardAvoidingView>
 
-        <View style={styles.footerStatus}>
+        <View style={[styles.footerStatus, { bottom: 16 + insets.bottom }]}>
           <View style={[
             styles.appCheckBadge,
             appCheckStatus === 'success'
@@ -217,7 +219,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
-    marginBottom: 24,
+    marginBottom: 0,
     backgroundColor: '#ffffff30',
   },
   appCheckBadgeSuccess: {
@@ -241,7 +243,6 @@ const styles = StyleSheet.create({
   },
   appCheckErrorContainer: {
     marginTop: 6,
-    marginBottom: 16,
     paddingHorizontal: 12,
   },
   appCheckErrorLabel: {
@@ -265,9 +266,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 24,
     width: '100%',
     alignItems: 'center',
+    paddingHorizontal: 16,
   },
   phoneInputContainer: {
     width: '90%',

@@ -4,11 +4,16 @@ import { Platform, PermissionsAndroid } from 'react-native';
 import { showMessage } from 'react-native-flash-message';
 import { MaterialIcons } from '@expo/vector-icons';
 
+import { getApp } from '@react-native-firebase/app';
 import { getAuth } from '@react-native-firebase/auth'
 import { getDatabase } from '@react-native-firebase/database';
 import { getMessaging, AuthorizationStatus } from '@react-native-firebase/messaging';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import appCheck from '@react-native-firebase/app-check';
+import {
+  ReactNativeFirebaseAppCheckProvider,
+  initializeAppCheck,
+  getToken,
+} from '@react-native-firebase/app-check';
 import * as Application from 'expo-application';
 
 type AppCheckStatus = 'pending' | 'success' | 'empty' | 'error';
@@ -89,32 +94,35 @@ const setupAppCheck = async (
     onStatusChange?.('pending');
     onErrorChange?.(null);
 
-    // Create and configure the custom provider
-    const rnfbProvider = appCheck().newReactNativeFirebaseAppCheckProvider();
-    
-    // Configure provider based on platform and environment
-    // Debug tokens are registered in the Firebase Console
+    // Modular API (RNFB v25+): construct provider, then initializeAppCheck
+    // https://rnfirebase.io/app-check/usage
+    const rnfbProvider = new ReactNativeFirebaseAppCheckProvider();
+
+    // Local-only debug tokens from .env.local (EXPO_PUBLIC_*). Omitted in release
+    // because __DEV__ is false; keep tokens out of git / EAS production env.
+    const androidDebugToken = process.env.EXPO_PUBLIC_APP_CHECK_DEBUG_TOKEN_ANDROID;
+    const appleDebugToken = process.env.EXPO_PUBLIC_APP_CHECK_DEBUG_TOKEN_APPLE;
 
     rnfbProvider.configure({
       android: {
         provider: __DEV__ ? 'debug' : 'playIntegrity',
-        ...(__DEV__ && { debugToken: '' }),
+        ...(__DEV__ && androidDebugToken ? { debugToken: androidDebugToken } : {}),
       },
       apple: {
         provider: __DEV__ ? 'debug' : 'appAttestWithDeviceCheckFallback',
-        ...(__DEV__ &&  { debugToken: '' }),
+        ...(__DEV__ && appleDebugToken ? { debugToken: appleDebugToken } : {}),
       },
     });
-    
-    // Initialize App Check with the custom provider on the default app
-    await appCheck().initializeAppCheck({
+
+    // Returns synchronously; native provider configure continues in the background
+    const appCheckInstance = initializeAppCheck(getApp(), {
       provider: rnfbProvider,
       isTokenAutoRefreshEnabled: true,
     });
 
     // Verify App Check was initialized correctly
     try {
-      const { token } = await appCheck().getToken(true);
+      const { token } = await getToken(appCheckInstance, true);
       if (token.length > 0) {
         onStatusChange?.('success');
         onErrorChange?.(null);
@@ -131,8 +139,6 @@ const setupAppCheck = async (
       onErrorChange?.(message);
     }
 
-    // No explicit instance returned from initializeAppCheck in this API,
-    // we just return null to satisfy the function signature.
     return null;
   } catch (error) {
     console.error('App Check initialization failed:', error);
