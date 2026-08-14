@@ -1,7 +1,7 @@
 import React from 'react';
-import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
+import { useLocalSearchParams, useNavigation, useRouter, Stack } from 'expo-router'
 import { useEffect, useState, useMemo, useCallback } from 'react'
-import { Text, View, StyleSheet, Pressable, Image, Alert, ScrollView, TextInput, Linking } from 'react-native'
+import { Text, View, StyleSheet, Pressable, Image, Alert, ScrollView, TextInput, Linking, Platform, PlatformColor } from 'react-native'
 import { useFocusEffect } from "expo-router/react-navigation"
 import { Group, Hangout, GroupIcon, User } from '../../../../types'
 import { useAuth } from '../../../../ctx'
@@ -67,6 +67,15 @@ export default function GroupPage() {
     const sortedHangouts = useMemo(() => sortHangouts(hangouts || []), [hangouts]);
     const isAdmin = userId && group?.admins?.[userId];
 
+    const cancelEditing = useCallback(() => {
+        setIsEditingIcon(false);
+        setGroup((prev) => {
+            if (!prev) return prev;
+            return { ...prev, name: (name as string) || prev.name };
+        });
+        setTentativeInfo(group?.info || '');
+    }, [group?.info, name]);
+
     // Function to update header with group info
     const updateHeader = useCallback((groupData: Group | undefined, currentUserId: string | undefined, editing: boolean) => {
         if (!groupData) return;
@@ -97,16 +106,29 @@ export default function GroupPage() {
                     </Text>
                 </View>
             ),
-            headerRight: isAdminUser && !editing ? () => (
-                <Pressable 
-                    onPress={() => setIsEditingIcon(true)}
-                    style={{ marginRight: 16 }}
-                >
-                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '500' }}>Edit</Text>
-                </Pressable>
+            // iOS Liquid Glass: use Stack.Toolbar native button (centered).
+            // Android: keep a simple Pressable in headerRight.
+            headerRight: Platform.OS === 'android' && isAdminUser ? () => (
+                editing ? (
+                    <Pressable
+                        onPress={cancelEditing}
+                        style={{ marginRight: 16, padding: 4 }}
+                        accessibilityLabel="Cancel editing"
+                    >
+                        <MaterialIcons name="close" size={24} color="#fff" />
+                    </Pressable>
+                ) : (
+                    <Pressable
+                        onPress={() => setIsEditingIcon(true)}
+                        style={{ marginRight: 16, padding: 4 }}
+                        accessibilityLabel="Edit group"
+                    >
+                        <MaterialIcons name="edit" size={24} color="#fff" />
+                    </Pressable>
+                )
             ) : undefined,
         });
-    }, [navigation]);
+    }, [navigation, cancelEditing]);
 
     const loadGroupData = useCallback((isInitialLoad = false) => {
         // Only reset loadComplete on initial load, not when refocusing
@@ -373,6 +395,25 @@ export default function GroupPage() {
 
     return (
         <View style={styles.container}>
+            {Platform.OS === 'ios' && isAdmin ? (
+                <Stack.Toolbar placement="right">
+                    {isEditingIcon ? (
+                        <Stack.Toolbar.Button
+                            icon="xmark"
+                            onPress={cancelEditing}
+                            tintColor={PlatformColor('labelColor')}
+                            accessibilityLabel="Cancel editing"
+                        />
+                    ) : (
+                        <Stack.Toolbar.Button
+                            icon="pencil"
+                            onPress={() => setIsEditingIcon(true)}
+                            tintColor={PlatformColor('labelColor')}
+                            accessibilityLabel="Edit group"
+                        />
+                    )}
+                </Stack.Toolbar>
+            ) : null}
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
                 <Pressable 
                     style={styles.createEventButton}
@@ -412,14 +453,7 @@ export default function GroupPage() {
                         <View style={styles.editActions}>
                             <Pressable 
                                 style={styles.cancelButton}
-                                onPress={() => {
-                                    setIsEditingIcon(false);
-                                    // Reset group name and info if cancelled
-                                    if (group) {
-                                        setGroup({ ...group, name: name as string });
-                                        setTentativeInfo(group.info || '');
-                                    }
-                                }}
+                                onPress={cancelEditing}
                             >
                                 <Text style={styles.cancelButtonText}>Cancel</Text>
                             </Pressable>
