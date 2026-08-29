@@ -297,8 +297,8 @@ export default function HangoutPage() {
 
         try {
             // Request calendar permissions
-            const { status } = await Calendar.requestCalendarPermissionsAsync();
-            if (status !== 'granted') {
+            const { granted } = await Calendar.requestCalendarPermissions();
+            if (!granted) {
                 Alert.alert(
                     'Permission Required',
                     'Calendar access is required to add events. Please enable it in your device settings.'
@@ -306,11 +306,14 @@ export default function HangoutPage() {
                 return;
             }
 
-            // Get default calendar
-            const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-            const defaultCalendar = calendars.find(cal => cal.allowsModifications) || calendars[0];
+            // The calendar only preselects which one the OS form opens with; the
+            // user can switch to any of their calendars inside the form. Android
+            // has no system-wide default, so fall back to the account's primary.
+            const calendars = await Calendar.getCalendars(Calendar.EntityTypes.EVENT);
+            const writableCalendars = calendars.filter(cal => cal.allowsModifications);
+            const targetCalendar = writableCalendars.find(cal => cal.isPrimary) || writableCalendars[0];
 
-            if (!defaultCalendar) {
+            if (!targetCalendar) {
                 Alert.alert('Error', 'No writable calendar found on your device.');
                 return;
             }
@@ -319,19 +322,22 @@ export default function HangoutPage() {
             const startDate = new Date(hangout.time);
             const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Default 1 hour duration
 
-            const eventDetails = {
+            const result = await targetCalendar.addEventWithForm({
                 title: hangout.name,
                 startDate: startDate,
                 endDate: endDate,
-                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 ...(hangout.info && { notes: hangout.info }),
                 ...(hangout.location && { location: hangout.location }),
-            };
+                // Keeping the form in our task lets the promise wait for the
+                // user to finish instead of resolving as soon as it opens.
+                startNewActivityTask: false,
+            });
 
-            // Create the event
-            const eventId = await Calendar.createEventAsync(defaultCalendar.id, eventDetails);
-            
-            Alert.alert('Success', 'Hangout added to your calendar!');
+            // Android reports 'done' regardless of what the user chose, so only
+            // confirm when the platform actually tells us the event was saved.
+            if (result.action === Calendar.CalendarDialogResultActions.saved) {
+                Alert.alert('Success', 'Hangout added to your calendar!');
+            }
         } catch (error: any) {
             console.error('Error adding to calendar:', error);
             Alert.alert('Error', `Failed to add to calendar: ${error.message || 'Unknown error'}`);
