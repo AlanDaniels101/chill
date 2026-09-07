@@ -20,7 +20,7 @@ export default function RootLayout() {
         const { groupId, hangoutId } = remoteMessage.data;
         if (groupId && hangoutId) {
           console.log('Navigating from killed state to:', `/(tabs)/(groups)/hangout/${hangoutId}`);
-          router.push(`/(tabs)/(groups)/hangout/${hangoutId}`);
+          router.replace(`/(tabs)/(groups)/group/${groupId}?openHangout=${encodeURIComponent(hangoutId)}`, { withAnchor: true });
         }
       }
     });
@@ -34,7 +34,7 @@ export default function RootLayout() {
         const { groupId, hangoutId } = remoteMessage.data;
         if (groupId && hangoutId) {
           console.log('Navigating from background to:', `/(tabs)/(groups)/hangout/${hangoutId}`);
-          router.push(`/(tabs)/(groups)/hangout/${hangoutId}`);
+          router.replace(`/(tabs)/(groups)/group/${groupId}?openHangout=${encodeURIComponent(hangoutId)}`, { withAnchor: true });
         }
       }
     });
@@ -90,8 +90,8 @@ export default function RootLayout() {
               duration: 4000,
             });
           }
-          router.replace('/(tabs)/(groups)');
-          router.push(`/(tabs)/(groups)/group/${groupId}`);
+          // withAnchor keeps the groups list under the group so Back returns there.
+          router.replace(`/(tabs)/(groups)/group/${groupId}`, { withAnchor: true });
           return;
         }
 
@@ -140,12 +140,10 @@ export default function RootLayout() {
           });
         }
         
-        // Navigate to the hangout with the group as the back destination.
-        // replace clears the deep link loading screen from the stack, then
-        // push puts the hangout on top so back returns to the group.
+        // Land on the group first; it pushes the hangout once mounted so Back
+        // returns to the group (replace+push from here races the stack).
         console.log('[DeepLink] Navigating to hangout:', hangoutId);
-        router.replace(`/(tabs)/(groups)/group/${groupId}`);
-        router.push(`/(tabs)/(groups)/hangout/${hangoutId}`);
+        router.replace(`/(tabs)/(groups)/group/${groupId}?openHangout=${encodeURIComponent(hangoutId)}`, { withAnchor: true });
       } catch (error: any) {
         console.error('[DeepLink] Error handling deep link:', error);
         if (error.code === 'PERMISSION_DENIED') {

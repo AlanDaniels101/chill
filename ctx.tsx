@@ -466,7 +466,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
               />
             ),
             onPress: () => {
-              router.push(`/(tabs)/(groups)/hangout/${hangoutId}`);
+              router.replace(`/(tabs)/(groups)/group/${groupId}?openHangout=${encodeURIComponent(hangoutId)}`, { withAnchor: true });
             },
           });
         }

@@ -28,8 +28,8 @@ export default function JoinGroupHandler() {
                     .ref(`/groups/${groupId}/members/${userId}`)
                     .set(true);
 
-                // Navigate to the group
-                router.replace(`/(tabs)/(groups)/group/${groupId}`);
+                // Navigate to the group with the groups list underneath
+                router.replace(`/(tabs)/(groups)/group/${groupId}`, { withAnchor: true });
             } catch (error) {
                 console.error('Error joining group:', error);
                 // On error, redirect to groups list
@@ -55,4 +55,4 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-}); 
+});

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Text, View, StyleSheet, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { Text, View, StyleSheet, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, LogBox } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../ctx';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -7,15 +7,9 @@ import { Stack } from 'expo-router';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import PhoneInput from 'react-native-phone-number-input';
 
-const PhoneInputWrapper = React.forwardRef((props: any, ref) => {
-  const originalConsoleError = console.error;
-  console.error = (...args) => {
-    if (args[0]?.includes('defaultProps')) {
-      return;
-    }
-    originalConsoleError(...args);
-  };
+LogBox.ignoreLogs(['defaultProps']);
 
+const PhoneInputWrapper = React.forwardRef((props: any, ref) => {
   return <PhoneInput {...props} ref={ref} />;
 });
 

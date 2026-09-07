@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { Text, View, StyleSheet, Pressable, Image, Alert, ScrollView, TextInput, Linking, Platform, PlatformColor } from 'react-native'
 import { useFocusEffect } from "expo-router/react-navigation"
 import { Group, Hangout, GroupIcon, User } from '../../../../types'
@@ -115,7 +115,7 @@ function sortHangouts(hangouts: Hangout[]) {
 export default function GroupPage() {
     const router = useRouter()
     const local = useLocalSearchParams()
-    const { id, name, iconType, iconValue, iconCached } = local
+    const { id, name, iconType, iconValue, iconCached, openHangout } = local
     const { userId } = useAuth()
     const initialName = firstParam(name as string | string[] | undefined);
     const imageCached = firstParam(iconCached as string | string[] | undefined) === '1';
@@ -138,6 +138,18 @@ export default function GroupPage() {
     
     const sortedHangouts = useMemo(() => sortHangouts(hangouts || []), [hangouts]);
     const isAdmin = userId && group?.admins?.[userId];
+    const openedHangoutRef = useRef<string | null>(null);
+
+    // Hangout invite links open this group first so it sits under the hangout
+    // in the stack; then we push the event once this screen is mounted.
+    useEffect(() => {
+        const hangoutId = firstParam(openHangout as string | string[] | undefined);
+        if (!hangoutId || openedHangoutRef.current === hangoutId) {
+            return;
+        }
+        openedHangoutRef.current = hangoutId;
+        router.push(`/(tabs)/(groups)/hangout/${hangoutId}`);
+    }, [openHangout, router]);
 
     const cancelEditing = useCallback(() => {
         setIsEditingIcon(false);
