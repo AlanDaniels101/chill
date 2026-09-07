@@ -19,6 +19,7 @@ export type Hangout = {
     createdAnonymously?: boolean;
     location?: string;
     info?: string;  // For additional details, links, etc.
+    durationMinutes?: number;
 };
 
 export type GroupIcon = {

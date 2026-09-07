@@ -10,9 +10,15 @@ import Linkify from 'react-native-linkify';
 import * as Linking from 'expo-linking';
 import { hangoutLink } from '../../../../constants';
 import UserAvatar from '../../../components/UserAvatar';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import AppDateTimePicker from '../../../components/AppDateTimePicker';
 import { format } from 'date-fns';
 import * as Calendar from 'expo-calendar';
+import {
+    formatDurationLabel,
+    formatTimeRange,
+    getDurationMinutes,
+} from '../../../../utils/duration';
+import DurationPicker from '../../../components/DurationPicker';
 
 export default function HangoutPage() {
     const navigation = useNavigation();
@@ -26,6 +32,7 @@ export default function HangoutPage() {
     const [group, setGroup] = useState<Group | null>(null);
     const [attendees, setAttendees] = useState<{ [key: string]: User }>({});
     const [isEditingInfo, setIsEditingInfo] = useState(false);
+    const [isEditingDuration, setIsEditingDuration] = useState(false);
     const [tentativeInfo, setTentativeInfo] = useState('');
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
@@ -155,6 +162,20 @@ export default function HangoutPage() {
         } catch (error) {
             console.error('Error updating info:', error);
             Alert.alert('Error', 'Failed to update info. Please try again.');
+        }
+    };
+
+    const handleUpdateDuration = async (minutes: number) => {
+        if (!id) return;
+
+        try {
+            await getDatabase()
+                .ref(`/hangouts/${id}/durationMinutes`)
+                .set(minutes);
+            setHangout(prev => prev ? { ...prev, durationMinutes: minutes } : null);
+        } catch (error) {
+            console.error('Error updating duration:', error);
+            Alert.alert('Error', 'Failed to update duration. Please try again.');
         }
     };
 
@@ -321,7 +342,8 @@ export default function HangoutPage() {
 
             // Create event details
             const startDate = new Date(hangout.time);
-            const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Default 1 hour duration
+            const durationMinutes = getDurationMinutes(hangout.durationMinutes);
+            const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
 
             const result = await targetCalendar.addEventWithForm({
                 title: hangout.name,
@@ -668,7 +690,7 @@ export default function HangoutPage() {
                         </View>
                         {showDatePicker && (
                             <View style={styles.pickerContainer}>
-                                <DateTimePicker
+                                <AppDateTimePicker
                                     value={suggestedDate}
                                     mode={pickerMode}
                                     is24Hour={false}
@@ -718,6 +740,7 @@ export default function HangoutPage() {
                         onChangeText={setTentativeInfo}
                         multiline
                         placeholder="Add details, links, or notes about this hangout..."
+                        placeholderTextColor="#666"
                     />
                     <View style={styles.infoEditButtons}>
                         <Pressable
@@ -811,7 +834,11 @@ export default function HangoutPage() {
                         <View style={styles.infoRow}>
                             <MaterialIcons name="schedule" size={24} color="#666" />
                             <Text style={styles.infoText}>
-                                {hangout?.datetimePollInProgress ? 'TBD' : date.toLocaleString()}
+                                {hangout?.datetimePollInProgress
+                                    ? 'TBD'
+                                    : hangout?.time
+                                        ? formatTimeRange(hangout.time, hangout.durationMinutes)
+                                        : date.toLocaleString()}
                             </Text>
                             {!hangout?.datetimePollInProgress && hangout?.time && (
                                 <Pressable
@@ -823,6 +850,44 @@ export default function HangoutPage() {
                                 </Pressable>
                             )}
                         </View>
+
+                        {!hangout?.datetimePollInProgress && hangout?.time && (
+                            <View style={styles.durationSection}>
+                                <View style={styles.infoRow}>
+                                    <MaterialIcons name="timelapse" size={24} color="#666" />
+                                    {group?.members?.[userId] && !isPast && !isEditingDuration ? (
+                                        <Pressable
+                                            style={styles.durationButton}
+                                            onPress={() => setIsEditingDuration(true)}
+                                        >
+                                            <Text style={styles.infoText}>
+                                                {formatDurationLabel(getDurationMinutes(hangout.durationMinutes))}
+                                            </Text>
+                                            <MaterialIcons name="edit" size={18} color="#666" />
+                                        </Pressable>
+                                    ) : (
+                                        <Text style={styles.infoText}>
+                                            {formatDurationLabel(getDurationMinutes(hangout.durationMinutes))}
+                                        </Text>
+                                    )}
+                                </View>
+                                {group?.members?.[userId] && !isPast && isEditingDuration && (
+                                    <View style={styles.durationEditSection}>
+                                        <DurationPicker
+                                            startTime={hangout.time}
+                                            value={getDurationMinutes(hangout.durationMinutes)}
+                                            onChange={handleUpdateDuration}
+                                        />
+                                        <Pressable
+                                            style={styles.durationDoneButton}
+                                            onPress={() => setIsEditingDuration(false)}
+                                        >
+                                            <Text style={styles.durationDoneText}>Done</Text>
+                                        </Pressable>
+                                    </View>
+                                )}
+                            </View>
+                        )}
 
                         <View style={styles.infoRow}>
                             {group?.icon?.type === 'material' ? (
@@ -991,6 +1056,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         position: 'relative',
         minHeight: 50,
+        gap: 12,
     },
     infoRow: {
         flexDirection: 'row',
@@ -1002,6 +1068,28 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#2c3e50',
         flex: 1,
+    },
+    durationButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    durationSection: {
+        gap: 12,
+    },
+    durationEditSection: {
+        gap: 8,
+    },
+    durationDoneButton: {
+        alignSelf: 'flex-end',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+    },
+    durationDoneText: {
+        color: '#5c8ed6',
+        fontSize: 16,
+        fontWeight: '600',
     },
     addToCalendarButton: {
         flexDirection: 'row',
@@ -1132,6 +1220,8 @@ const styles = StyleSheet.create({
         padding: 10,
         minHeight: 100,
         textAlignVertical: 'top',
+        fontSize: 16,
+        color: '#2c3e50',
     },
     infoEditButtons: {
         flexDirection: 'row',

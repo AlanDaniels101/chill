@@ -463,7 +463,10 @@ describe('Hangout collection rules', () => {
                 createdAt: Date.now(),
                 group: TEST_GROUP_ID,
                 createdBy: TEST_GROUP_MEMBER_UID,
-                createdAnonymously: false
+                createdAnonymously: false,
+                attendees: {
+                    [TEST_GROUP_MEMBER_UID]: true
+                }
             });
         });
     });
@@ -526,18 +529,17 @@ describe('Hangout collection rules', () => {
         const hangoutRef = db.ref(`hangouts/${TEST_HANGOUT_ID}`);
 
         // Should succeed - editing allowed fields
-        await assertSucceeds(hangoutRef.update({ name: 'Edited Test Hangout' }));
-        await assertSucceeds(hangoutRef.update({ createdAt: Date.now() }));
+        await assertSucceeds(hangoutRef.child('name').set('Edited Test Hangout'));
+        await assertSucceeds(hangoutRef.child('info').set('Bring snacks'));
+        await assertSucceeds(hangoutRef.child('durationMinutes').set(120));
 
         // Should fail - editing protected fields
-        await assertFails(hangoutRef.update({ group: 'new-group-id' }));
-        await assertFails(hangoutRef.update({ createdBy: OTHER_UID }));
-        await assertFails(hangoutRef.update({ createdAnonymously: true }));
-
-        // Should fail - editing allowed fields along with protected fields
+        await assertFails(hangoutRef.child('group').set('new-group-id'));
+        await assertFails(hangoutRef.child('createdBy').set(OTHER_UID));
+        await assertFails(hangoutRef.child('createdAnonymously').set(true));
         await assertFails(hangoutRef.update({
             name: 'New Name',
-            group: 'new-group-id'  // This should cause the entire update to fail
+            group: 'new-group-id'
         }));
     });
 

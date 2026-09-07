@@ -72,7 +72,8 @@
         ".read": false,
         "$hangoutId": {
           "group": {
-            ".read": "auth != null"
+            ".read": "auth != null",
+            ".write": false
           },
           // First read the group ID from the hangout data
           // Then check if the user is a member/admin of that group
@@ -83,29 +84,88 @@
               root.child('groups').child(data.child('group').val()).child('members').child(auth.uid).val() === true ||
               root.child('groups').child(data.child('group').val()).child('admins').child(auth.uid).val() === true
             )",
+          // Parent writes are limited to create and delete; field updates use child rules below.
           ".write": "auth !== null && (
             // CREATION
             (!data.exists() && newData.exists() &&
-              // Must be member of the group to create
               root.child('groups').child(newData.child('group').val()).child('members').child(auth.uid).val() === true) ||
-            
-            // UPDATE
-            (data.exists() && newData.exists() && (
-              // Members can update, except certain fields
-              (root.child('groups').child(data.child('group').val()).child('members').child(auth.uid).val() === true &&
-               // Ensure fields haven't changed
-               data.child('group').val() === newData.child('group').val() &&
-               data.child('createdBy').val() === newData.child('createdBy').val() &&
-               data.child('createdAnonymously').val() === newData.child('createdAnonymously').val() &&
-               data.child('attendees').val() === newData.child('attendees').val()
-              )
-            )) ||
             
             // DELETION
             (data.exists() && !newData.exists() &&
-              // Must be creator to delete
               data.child('createdBy').val() === auth.uid)
           )",
+          "createdBy": {
+            ".write": false
+          },
+          "createdAnonymously": {
+            ".write": false
+          },
+          "name": {
+            ".write": "auth !== null && (
+              root.child('groups').child(data.parent().child('group').val()).child('members').child(auth.uid).val() === true ||
+              root.child('groups').child(data.parent().child('group').val()).child('admins').child(auth.uid).val() === true
+            )"
+          },
+          "info": {
+            ".write": "auth !== null && (
+              root.child('groups').child(data.parent().child('group').val()).child('members').child(auth.uid).val() === true ||
+              root.child('groups').child(data.parent().child('group').val()).child('admins').child(auth.uid).val() === true
+            )"
+          },
+          "durationMinutes": {
+            ".write": "auth !== null && (
+              root.child('groups').child(data.parent().child('group').val()).child('members').child(auth.uid).val() === true ||
+              root.child('groups').child(data.parent().child('group').val()).child('admins').child(auth.uid).val() === true
+            )"
+          },
+          "location": {
+            ".write": "auth !== null && (
+              root.child('groups').child(data.parent().child('group').val()).child('members').child(auth.uid).val() === true ||
+              root.child('groups').child(data.parent().child('group').val()).child('admins').child(auth.uid).val() === true
+            )"
+          },
+          "time": {
+            ".write": "auth !== null && (
+              root.child('groups').child(data.parent().child('group').val()).child('members').child(auth.uid).val() === true ||
+              root.child('groups').child(data.parent().child('group').val()).child('admins').child(auth.uid).val() === true
+            )"
+          },
+          "minAttendees": {
+            ".write": "auth !== null && (
+              root.child('groups').child(data.parent().child('group').val()).child('members').child(auth.uid).val() === true ||
+              root.child('groups').child(data.parent().child('group').val()).child('admins').child(auth.uid).val() === true
+            )"
+          },
+          "maxAttendees": {
+            ".write": "auth !== null && (
+              root.child('groups').child(data.parent().child('group').val()).child('members').child(auth.uid).val() === true ||
+              root.child('groups').child(data.parent().child('group').val()).child('admins').child(auth.uid).val() === true
+            )"
+          },
+          "datetimePollInProgress": {
+            ".write": "auth !== null && (
+              root.child('groups').child(data.parent().child('group').val()).child('members').child(auth.uid).val() === true ||
+              root.child('groups').child(data.parent().child('group').val()).child('admins').child(auth.uid).val() === true
+            )"
+          },
+          "candidateDates": {
+            ".write": "auth !== null && (
+              root.child('groups').child(data.parent().child('group').val()).child('members').child(auth.uid).val() === true ||
+              root.child('groups').child(data.parent().child('group').val()).child('admins').child(auth.uid).val() === true
+            )"
+          },
+          "datePollSelections": {
+            ".write": "auth !== null && (
+              root.child('groups').child(data.parent().child('group').val()).child('members').child(auth.uid).val() === true ||
+              root.child('groups').child(data.parent().child('group').val()).child('admins').child(auth.uid).val() === true
+            )",
+            "$uid": {
+              ".write": "auth !== null && (
+                root.child('groups').child(data.parent().parent().child('group').val()).child('members').child(auth.uid).val() === true ||
+                root.child('groups').child(data.parent().parent().child('group').val()).child('admins').child(auth.uid).val() === true
+              )"
+            }
+          },
           "attendees": {
             "$uid": {
               // Users can only modify their own attendance

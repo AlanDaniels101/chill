@@ -1,11 +1,13 @@
 import { View, Text, Modal, TextInput, Pressable, StyleSheet, Platform, Alert, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { useState } from 'react';
 import { getDatabase } from '@react-native-firebase/database';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import AppDateTimePicker from './AppDateTimePicker';
 import { format } from 'date-fns';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../ctx';
 import * as Linking from 'expo-linking';
+import DurationPicker from './DurationPicker';
+import { DEFAULT_DURATION_MINUTES } from '../../utils/duration';
 
 type Props = {
     visible: boolean;
@@ -36,6 +38,7 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
     const [showTooltip, setShowTooltip] = useState(false);
     const [location, setLocation] = useState('');
     const [pollMode, setPollMode] = useState(false);
+    const [durationMinutes, setDurationMinutes] = useState(DEFAULT_DURATION_MINUTES);
 
     // Reset form with tomorrow's date
     const resetForm = () => {
@@ -44,6 +47,7 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
         setCreatedAnonymously(true);
         setLocation('');
         setPollMode(false);
+        setDurationMinutes(DEFAULT_DURATION_MINUTES);
     };
 
     const handleCreate = async () => {
@@ -73,6 +77,7 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                 hangoutData.datetimePollInProgress = true;
             } else {
                 hangoutData.time = date.getTime();
+                hangoutData.durationMinutes = durationMinutes;
             }
 
             await hangoutRef.set(hangoutData);
@@ -232,7 +237,7 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                             {showPicker && (
                                 <TouchableWithoutFeedback onPress={() => {}}>
                                     <View style={styles.pickerContainer}>
-                                        <DateTimePicker
+                                        <AppDateTimePicker
                                             value={date}
                                             mode={pickerMode}
                                             is24Hour={false}
@@ -242,6 +247,16 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                                     </View>
                                 </TouchableWithoutFeedback>
                             )}
+
+                            <View style={styles.durationSection}>
+                                <Text style={styles.durationLabel}>Duration</Text>
+                                <DurationPicker
+                                    startTime={date.getTime()}
+                                    value={durationMinutes}
+                                    onChange={setDurationMinutes}
+                                    onPickerActive={() => setShowPicker(false)}
+                                />
+                            </View>
                         </>
                     )}
 
@@ -473,6 +488,13 @@ const styles = StyleSheet.create({
     dateTimeButtonText: {
         fontSize: 16,
         color: '#2c3e50',
+    },
+    durationSection: {
+        gap: 8,
+    },
+    durationLabel: {
+        fontSize: 14,
+        color: '#666',
     },
     pickerContainer: {
         marginTop: 8,

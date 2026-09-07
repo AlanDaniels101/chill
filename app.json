@@ -6,7 +6,7 @@
     "scheme": "chill",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "ios": {
       "associatedDomains": [
         "applinks:chillhangouts.ca"
