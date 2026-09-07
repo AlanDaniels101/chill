@@ -37,6 +37,7 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
     const [maxAttendees, setMaxAttendees] = useState(8);
     const [showTooltip, setShowTooltip] = useState(false);
     const [location, setLocation] = useState('');
+    const [info, setInfo] = useState('');
     const [pollMode, setPollMode] = useState(false);
     const [durationMinutes, setDurationMinutes] = useState(DEFAULT_DURATION_MINUTES);
 
@@ -46,6 +47,7 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
         setDate(getTomorrowDate());
         setCreatedAnonymously(true);
         setLocation('');
+        setInfo('');
         setPollMode(false);
         setDurationMinutes(DEFAULT_DURATION_MINUTES);
     };
@@ -71,6 +73,11 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                     [userId]: true
                 }
             };
+
+            const trimmedInfo = info.trim();
+            if (trimmedInfo) {
+                hangoutData.info = trimmedInfo;
+            }
 
             // Add time or poll flag based on mode
             if (pollMode) {
@@ -393,6 +400,16 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                         </Pressable>
                     </Pressable>
 
+                    <TextInput
+                        style={[styles.input, styles.descriptionInput]}
+                        placeholder="Hangout Description (Optional)"
+                        placeholderTextColor="#666"
+                        value={info}
+                        onChangeText={setInfo}
+                        multiline
+                        onFocus={() => setShowPicker(false)}
+                    />
+
                     <View style={styles.modalButtons}>
                         <Pressable 
                             style={[styles.modalButton]} 
@@ -447,6 +464,10 @@ const styles = StyleSheet.create({
         padding: 12,
         fontSize: 16,
         color: '#2c3e50',
+    },
+    descriptionInput: {
+        minHeight: 80,
+        textAlignVertical: 'top',
     },
     modalButtons: {
         flexDirection: 'row',
