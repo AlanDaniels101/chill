@@ -1,21 +1,52 @@
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native'
-import { Link } from 'expo-router'
+import { View, Text, StyleSheet, Pressable, Image, ActivityIndicator } from 'react-native'
+import { useRouter } from 'expo-router'
 import { Group } from '../../types'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { getDatabase } from '@react-native-firebase/database'
 import { format } from 'date-fns'
+
+const OPEN_TIMEOUT_MS = 2000;
 
 interface GroupPanelProps {
     group: Group
 }
 
 const GroupPanel: React.FC<GroupPanelProps> = ({group}) => {
+    const router = useRouter();
     const defaultIcon = { type: 'material' as const, value: 'groups' };
     const icon = group.icon || defaultIcon;
     const [nextHangout, setNextHangout] = useState<{ name: string; time: number } | null>(null);
     const [hangoutCount, setHangoutCount] = useState(0);
+    const [isOpening, setIsOpening] = useState(false);
     const memberCount = Object.keys(group.members || {}).length;
+    const imageReadyRef = useRef(icon.type !== 'image');
+    const readyWaiters = useRef<Array<() => void>>([]);
+    const seenIconValue = useRef(icon.value);
+
+    if (seenIconValue.current !== icon.value) {
+        seenIconValue.current = icon.value;
+        imageReadyRef.current = icon.type !== 'image';
+    }
+
+    const markImageReady = () => {
+        imageReadyRef.current = true;
+        readyWaiters.current.forEach((resolve) => resolve());
+        readyWaiters.current = [];
+    };
+
+    const waitForListImage = () =>
+        new Promise<boolean>((resolve) => {
+            if (imageReadyRef.current) {
+                resolve(true);
+                return;
+            }
+            const timer = setTimeout(() => resolve(false), OPEN_TIMEOUT_MS);
+            readyWaiters.current.push(() => {
+                clearTimeout(timer);
+                resolve(true);
+            });
+        });
 
     useEffect(() => {
         const hangoutIds = Object.keys(group.hangouts || {});
@@ -73,47 +104,77 @@ const GroupPanel: React.FC<GroupPanelProps> = ({group}) => {
         return format(new Date(nextHangout.time), 'MMM d, h:mm a');
     };
 
+    const openGroup = async () => {
+        if (isOpening) return;
+
+        const needsWait = icon.type === 'image' && !imageReadyRef.current;
+        if (needsWait) setIsOpening(true);
+
+        try {
+            let iconCached = icon.type !== 'image' || imageReadyRef.current;
+            if (needsWait) {
+                iconCached = await waitForListImage();
+            }
+            router.push({
+                pathname: '/(tabs)/(groups)/group/[id]',
+                params: {
+                    id: group.id,
+                    name: group.name,
+                    iconType: icon.type,
+                    iconValue: icon.value,
+                    iconCached: iconCached ? '1' : '0',
+                },
+            });
+        } finally {
+            if (needsWait) setIsOpening(false);
+        }
+    };
+
     return (
-        <Link href={`/(tabs)/(groups)/group/${group.id}?name=${group.name}`} asChild>
-            <Pressable style={styles.container}>
-                <View style={styles.iconContainer}>
-                    {icon.type === 'material' ? (
-                        <MaterialIcons 
-                            name={icon.value as any} 
-                            size={40} 
-                            color="#fff" 
-                        />
-                    ) : (
-                        <Image 
-                            source={{ uri: icon.value }}
-                            style={styles.iconImage}
-                        />
-                    )}
-                </View>
-                <View style={styles.content}>
-                    <Text style={styles.name} numberOfLines={1}>{group.name}</Text>
-                    <View style={styles.stats}>
-                        <View style={styles.statItem}>
-                            <MaterialIcons name="event" size={14} color="#666" />
-                            <Text style={styles.statText}>{hangoutCount}</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                            <MaterialIcons name="people" size={14} color="#666" />
-                            <Text style={styles.statText}>{memberCount}</Text>
-                        </View>
+        <Pressable style={styles.container} onPress={openGroup} disabled={isOpening}>
+            <View style={styles.iconContainer}>
+                {icon.type === 'material' ? (
+                    <MaterialIcons 
+                        name={icon.value as any} 
+                        size={40} 
+                        color="#fff" 
+                    />
+                ) : (
+                    <Image 
+                        source={{ uri: icon.value }}
+                        style={styles.iconImage}
+                        fadeDuration={0}
+                        onLoad={markImageReady}
+                    />
+                )}
+            </View>
+            <View style={styles.content}>
+                <Text style={styles.name} numberOfLines={1}>{group.name}</Text>
+                <View style={styles.stats}>
+                    <View style={styles.statItem}>
+                        <MaterialIcons name="event" size={14} color="#666" />
+                        <Text style={styles.statText}>{hangoutCount}</Text>
                     </View>
-                    {nextHangout && (
-                        <View style={styles.nextHangout}>
-                            <MaterialIcons name="schedule" size={12} color="#5c8ed6" />
-                            <Text style={styles.nextHangoutText} numberOfLines={1}>
-                                {nextHangout.name} • {formatNextHangout()}
-                            </Text>
-                        </View>
-                    )}
+                    <View style={styles.statItem}>
+                        <MaterialIcons name="people" size={14} color="#666" />
+                        <Text style={styles.statText}>{memberCount}</Text>
+                    </View>
                 </View>
+                {nextHangout && (
+                    <View style={styles.nextHangout}>
+                        <MaterialIcons name="schedule" size={12} color="#5c8ed6" />
+                        <Text style={styles.nextHangoutText} numberOfLines={1}>
+                            {nextHangout.name} • {formatNextHangout()}
+                        </Text>
+                    </View>
+                )}
+            </View>
+            {isOpening ? (
+                <ActivityIndicator size="small" color="#5c8ed6" />
+            ) : (
                 <MaterialIcons name="chevron-right" size={24} color="#ccc" />
-            </Pressable>
-        </Link>
+            )}
+        </Pressable>
     )
 }
 

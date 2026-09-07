@@ -17,6 +17,7 @@ export default function GroupsLayout() {
                 options={{ 
                     headerShown: true,
                     headerBackTitle: "Groups",
+                    title: '',
                 }} 
             />
             <Stack.Screen 

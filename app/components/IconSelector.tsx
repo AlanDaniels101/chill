@@ -1,21 +1,24 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, Image, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Image, TextInput, Alert, ActivityIndicator } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { GroupIcon } from '../../types';
 import { useState } from 'react';
+import { uploadGroupProfileImage, ProfileImagePhase } from '../../utils/profileImage';
 
 const MATERIAL_ICONS = [
-  'group', 'sports-esports', 'sports-basketball', 'restaurant', 
+  'group', 'sports-esports', 'sports-basketball', 'restaurant',
   'movie', 'music-note', 'beach-access', 'hiking'
 ];
 
 type Props = {
   selectedIcon: GroupIcon;
   onSelect: (icon: GroupIcon) => void;
+  groupId: string;
 };
 
-export default function IconSelector({ selectedIcon, onSelect }: Props) {
+export default function IconSelector({ selectedIcon, onSelect, groupId }: Props) {
   const [imageUrl, setImageUrl] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingUrl, setIsLoadingUrl] = useState(false);
+  const [photoPhase, setPhotoPhase] = useState<ProfileImagePhase | null>(null);
 
   const validateImageUrl = (url: string): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -27,10 +30,27 @@ export default function IconSelector({ selectedIcon, onSelect }: Props) {
     });
   };
 
+  const handlePickPhoto = async () => {
+    if (!groupId || photoPhase) return;
+
+    setPhotoPhase('picking');
+    try {
+      const downloadUrl = await uploadGroupProfileImage(groupId, setPhotoPhase);
+      if (downloadUrl) {
+        onSelect({ type: 'image', value: downloadUrl });
+      }
+    } catch (error) {
+      console.error('Error uploading group profile image:', error);
+      Alert.alert('Error', 'Failed to upload group photo');
+    } finally {
+      setPhotoPhase(null);
+    }
+  };
+
   const handleImageSubmit = async () => {
     if (!imageUrl.trim()) return;
 
-    setIsLoading(true);
+    setIsLoadingUrl(true);
     try {
       const isValid = await validateImageUrl(imageUrl.trim());
       if (isValid) {
@@ -42,34 +62,60 @@ export default function IconSelector({ selectedIcon, onSelect }: Props) {
     } catch (error) {
       Alert.alert('Error', 'Failed to load image. Please try another URL.');
     } finally {
-      setIsLoading(false);
+      setIsLoadingUrl(false);
     }
   };
 
+  const busy = photoPhase !== null || isLoadingUrl;
+
   return (
     <View style={styles.container}>
+      {selectedIcon.type === 'image' ? (
+        <Image source={{ uri: selectedIcon.value }} style={styles.preview} />
+      ) : null}
+
+      <Pressable
+        style={[styles.photoButton, busy && styles.disabledButton]}
+        onPress={handlePickPhoto}
+        disabled={busy}
+      >
+        {photoPhase ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <MaterialIcons name="photo-camera" size={20} color="#fff" />
+        )}
+        <Text style={styles.buttonText}>
+          {photoPhase === 'uploading'
+            ? 'Uploading...'
+            : photoPhase === 'picking'
+              ? 'Loading...'
+              : 'Choose from photos'}
+        </Text>
+      </Pressable>
+
       <View style={styles.urlInput}>
         <TextInput
           style={styles.input}
           value={imageUrl}
           onChangeText={setImageUrl}
-          placeholder="Enter image URL"
+          placeholder="Or paste an image URL"
           placeholderTextColor="#666"
+          editable={!busy}
         />
-        <Pressable 
+        <Pressable
           style={[
             styles.setImageButton,
-            (!imageUrl.trim() || isLoading) && styles.disabledButton
+            (!imageUrl.trim() || busy) && styles.disabledButton
           ]}
           onPress={handleImageSubmit}
-          disabled={!imageUrl.trim() || isLoading}
+          disabled={!imageUrl.trim() || busy}
         >
           <Text style={styles.buttonText}>
-            {isLoading ? 'Loading...' : 'Set Image'}
+            {isLoadingUrl ? 'Loading...' : 'Set URL'}
           </Text>
         </Pressable>
       </View>
-      
+
       <Text style={styles.orText}>- or choose an icon -</Text>
 
       <ScrollView horizontal style={styles.iconList}>
@@ -78,19 +124,20 @@ export default function IconSelector({ selectedIcon, onSelect }: Props) {
             key={iconName}
             style={[
               styles.iconButton,
-              selectedIcon.type === 'material' && 
-              selectedIcon.value === iconName && 
+              selectedIcon.type === 'material' &&
+              selectedIcon.value === iconName &&
               styles.selectedIcon
             ]}
             onPress={() => onSelect({ type: 'material', value: iconName })}
+            disabled={busy}
           >
             <MaterialIcons
               name={iconName as any}
               size={24}
               color={
-                selectedIcon.type === 'material' && 
-                selectedIcon.value === iconName 
-                  ? '#fff' 
+                selectedIcon.type === 'material' &&
+                selectedIcon.value === iconName
+                  ? '#fff'
                   : '#666'
               }
             />
@@ -105,6 +152,21 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     gap: 16,
+  },
+  preview: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignSelf: 'center',
+  },
+  photoButton: {
+    backgroundColor: '#5c8ed6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 8,
   },
   urlInput: {
     width: '100%',
@@ -152,4 +214,4 @@ const styles = StyleSheet.create({
   selectedIcon: {
     backgroundColor: '#5c8ed6',
   },
-}); 
+});

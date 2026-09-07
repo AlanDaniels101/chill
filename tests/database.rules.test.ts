@@ -260,6 +260,13 @@ describe('Group collection rules', () => {
             members: { [TEST_UID]: true },
             admins: { [TEST_UID]: true }
         }));
+
+        // createdAt is optional so existing groups, which never had one, remain editable
+        await assertSucceeds(groupRef.set({
+            name: 'Test Group',
+            members: { [TEST_UID]: true },
+            admins: { [TEST_UID]: true }
+        }));
     });
 
     it('should not allow non-admins to edit a group', async () => {
@@ -274,6 +281,37 @@ describe('Group collection rules', () => {
         const db = context.database();
         const groupRef = db.ref(`groups/${TEST_GROUP_ID}`);
         await assertSucceeds(groupRef.update({ name: 'New Group Name' }));
+    });
+
+    it('should allow admins to set a group icon', async () => {
+        const context = testEnv.authenticatedContext(TEST_GROUP_ADMIN_UID);
+        const db = context.database();
+        const groupRef = db.ref(`groups/${TEST_GROUP_ID}`);
+        await assertSucceeds(groupRef.update({
+            icon: { type: 'image', value: 'https://example.com/group.jpg' }
+        }));
+    });
+
+    it('should allow admins to edit a group that has no createdAt', async () => {
+        await testEnv.withSecurityRulesDisabled(async (context: RulesTestContext) => {
+            await context.database().ref(`groups/${TEST_GROUP_ID}`).set({
+                name: 'Test Group',
+                members: {
+                    [TEST_GROUP_ADMIN_UID]: true,
+                    [TEST_GROUP_MEMBER_UID]: true
+                },
+                admins: {
+                    [TEST_GROUP_ADMIN_UID]: true
+                }
+            });
+        });
+
+        const context = testEnv.authenticatedContext(TEST_GROUP_ADMIN_UID);
+        const db = context.database();
+        const groupRef = db.ref(`groups/${TEST_GROUP_ID}`);
+        await assertSucceeds(groupRef.update({
+            icon: { type: 'image', value: 'https://example.com/group.jpg' }
+        }));
     });
 
     it('should not allow non-admins to delete a group', async () => {

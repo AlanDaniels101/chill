@@ -36,7 +36,7 @@
               // Must be an admin to delete the group
               data.child('admins').child(auth.uid).val() === true)
           )",
-          ".validate": "newData.hasChildren(['name', 'createdAt', 'members', 'admins'])",
+          ".validate": "newData.hasChildren(['name', 'members', 'admins'])",
           "name": {
             ".validate": "newData.isString() && newData.val().length > 0"
           },

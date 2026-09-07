@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLocalSearchParams, useNavigation, useRouter, Stack } from 'expo-router'
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Text, View, StyleSheet, Pressable, Image, Alert, ScrollView, TextInput, Linking, Platform, PlatformColor } from 'react-native'
 import { useFocusEffect } from "expo-router/react-navigation"
@@ -18,6 +18,66 @@ import Linkify from 'react-native-linkify';
 // A member whose profile could not be read still needs a row in the list, but
 // admins shouldn't be able to act on someone they cannot identify.
 type MemberProfile = User & { unresolved?: boolean };
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+    return Array.isArray(value) ? value[0] : value;
+}
+
+const loadedHeaderImages = new Set<string>();
+
+function GroupHeaderTitle({
+    name,
+    icon,
+    imageCached,
+}: {
+    name?: string;
+    icon?: GroupIcon;
+    imageCached?: boolean;
+}) {
+    const photoUri = icon?.type === 'image' ? icon.value : undefined;
+    const [imageReady, setImageReady] = useState(() =>
+        !!photoUri && (imageCached || loadedHeaderImages.has(photoUri))
+    );
+
+    useEffect(() => {
+        setImageReady(!!photoUri && (imageCached || loadedHeaderImages.has(photoUri)));
+    }, [photoUri, imageCached]);
+
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {photoUri ? (
+                <View
+                    style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: 12,
+                        backgroundColor: '#5c8ed6',
+                        overflow: 'hidden',
+                    }}
+                >
+                    <Image
+                        source={{ uri: photoUri }}
+                        style={{ width: 24, height: 24, opacity: imageReady ? 1 : 0 }}
+                        fadeDuration={0}
+                        onLoad={() => {
+                            loadedHeaderImages.add(photoUri);
+                            setImageReady(true);
+                        }}
+                    />
+                </View>
+            ) : (
+                <MaterialIcons
+                    name={(icon?.type === 'material' ? icon.value : 'groups') as any}
+                    size={24}
+                    color="#fff"
+                />
+            )}
+            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600' }}>
+                {name || 'Group'}
+            </Text>
+        </View>
+    );
+}
 
 function sortHangouts(hangouts: Hangout[]) {
     const now = new Date().getTime();
@@ -53,11 +113,18 @@ function sortHangouts(hangouts: Hangout[]) {
 }
 
 export default function GroupPage() {
-    const navigation = useNavigation()
     const router = useRouter()
     const local = useLocalSearchParams()
-    const { id, name } = local
+    const { id, name, iconType, iconValue, iconCached } = local
     const { userId } = useAuth()
+    const initialName = firstParam(name as string | string[] | undefined);
+    const imageCached = firstParam(iconCached as string | string[] | undefined) === '1';
+    const initialIcon: GroupIcon | undefined = (() => {
+        const type = firstParam(iconType as string | string[] | undefined);
+        const value = firstParam(iconValue as string | string[] | undefined);
+        if (!type || !value) return undefined;
+        return { type: type === 'image' ? 'image' : 'material', value };
+    })();
 
     const [loadComplete, setLoadComplete] = useState(false)
     const [group, setGroup] = useState<Group>()
@@ -81,60 +148,6 @@ export default function GroupPage() {
         setTentativeInfo(group?.info || '');
     }, [group?.info, name]);
 
-    // Function to update header with group info
-    const updateHeader = useCallback((groupData: Group | undefined, currentUserId: string | undefined, editing: boolean) => {
-        if (!groupData) return;
-        const isAdminUser = currentUserId && groupData.admins?.[currentUserId];
-        navigation.setOptions({ 
-            headerTitle: () => (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    {groupData.icon?.type === 'material' ? (
-                        <MaterialIcons 
-                            name={groupData.icon.value as any} 
-                            size={24} 
-                            color="#fff" 
-                        />
-                    ) : groupData.icon?.type === 'image' ? (
-                        <Image 
-                            source={{ uri: groupData.icon.value }}
-                            style={{ width: 24, height: 24, borderRadius: 12 }}
-                        />
-                    ) : (
-                        <MaterialIcons 
-                            name="groups" 
-                            size={24} 
-                            color="#fff" 
-                        />
-                    )}
-                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600' }}>
-                        {groupData.name}
-                    </Text>
-                </View>
-            ),
-            // iOS Liquid Glass: use Stack.Toolbar native button (centered).
-            // Android: keep a simple Pressable in headerRight.
-            headerRight: Platform.OS === 'android' && isAdminUser ? () => (
-                editing ? (
-                    <Pressable
-                        onPress={cancelEditing}
-                        style={{ marginRight: 16, padding: 4 }}
-                        accessibilityLabel="Cancel editing"
-                    >
-                        <MaterialIcons name="close" size={24} color="#fff" />
-                    </Pressable>
-                ) : (
-                    <Pressable
-                        onPress={() => setIsEditingIcon(true)}
-                        style={{ marginRight: 16, padding: 4 }}
-                        accessibilityLabel="Edit group"
-                    >
-                        <MaterialIcons name="edit" size={24} color="#fff" />
-                    </Pressable>
-                )
-            ) : undefined,
-        });
-    }, [navigation, cancelEditing]);
-
     const loadGroupData = useCallback((isInitialLoad = false) => {
         // Only reset loadComplete on initial load, not when refocusing
         // This prevents flashing when navigating back to the page
@@ -156,12 +169,17 @@ export default function GroupPage() {
                 }
                 
                 const group = { id, ...val } as Group;
-                
-                // Get hangouts
+
+                // Paint the page as soon as the group node arrives so hangouts
+                // and member profiles cannot block the first frame.
+                setGroup(group);
+                setLoadComplete(true);
+
                 const hangoutIds = Object.keys(group.hangouts || {});
                 const promises = hangoutIds.map(id => getDatabase().ref(`/hangouts/${id}`).once('value'));
                 const hangoutSnapshots = await Promise.all(promises);
                 const hangouts = hangoutSnapshots.map(snap => ({id: snap.key, ...snap.val() } as Hangout));
+                setHangouts(hangouts);
                 
                 // Get all users who are members or admins
                 const userIds = new Set([
@@ -200,12 +218,7 @@ export default function GroupPage() {
                     (await Promise.all(userPromises)).map(user => [user.id, user])
                 );
 
-                setGroup(group);
-                setHangouts(hangouts);
                 setUsers(users);
-                setLoadComplete(true);
-                // Update navigation header with group info
-                updateHeader(group, userId, isEditingIcon);
             } catch (error: any) {
                 if (error.code === 'PERMISSION_DENIED') {
                     // Redirect to groups page for permission errors
@@ -224,14 +237,7 @@ export default function GroupPage() {
         return () => {
             groupRef.off('value', onGroupUpdate);
         };
-    }, [id, navigation, router]);
-
-    // Set initial header title immediately to prevent flash
-    useEffect(() => {
-        navigation.setOptions({
-            headerTitle: name || 'Group',
-        });
-    }, [navigation, name]);
+    }, [id, router]);
 
     // Load data when component mounts
     useEffect(() => {
@@ -246,13 +252,6 @@ export default function GroupPage() {
             return cleanup;
         }, [loadGroupData])
     );
-
-    // Update header when group or editing state changes
-    useEffect(() => {
-        if (group) {
-            updateHeader(group, userId, isEditingIcon);
-        }
-    }, [group, userId, isEditingIcon, updateHeader]);
 
     const handleDeleteGroup = async () => {
         if (!group || !userId) return;
@@ -293,6 +292,7 @@ export default function GroupPage() {
             setGroup(prev => prev ? { ...prev, icon: newIcon } : prev);
         } catch (error) {
             console.error('Error updating icon:', error);
+            Alert.alert('Error', 'Failed to update group icon');
         }
     };
 
@@ -406,10 +406,41 @@ export default function GroupPage() {
         );
     };
 
-    if (!loadComplete) return null
-
     return (
         <View style={styles.container}>
+            <Stack.Screen
+                options={{
+                    title: '',
+                    headerTitle: () => (
+                        <GroupHeaderTitle
+                            name={group?.name ?? initialName}
+                            icon={group?.icon ?? initialIcon}
+                            imageCached={imageCached}
+                        />
+                    ),
+                    headerRight: Platform.OS === 'android' && isAdmin ? () => (
+                        isEditingIcon ? (
+                            <Pressable
+                                onPress={cancelEditing}
+                                style={{ marginRight: 16, padding: 4 }}
+                                accessibilityLabel="Cancel editing"
+                            >
+                                <MaterialIcons name="close" size={24} color="#fff" />
+                            </Pressable>
+                        ) : (
+                            <Pressable
+                                onPress={() => setIsEditingIcon(true)}
+                                style={{ marginRight: 16, padding: 4 }}
+                                accessibilityLabel="Edit group"
+                            >
+                                <MaterialIcons name="edit" size={24} color="#fff" />
+                            </Pressable>
+                        )
+                    ) : undefined,
+                }}
+            />
+            {loadComplete ? (
+            <>
             {Platform.OS === 'ios' && isAdmin ? (
                 <Stack.Toolbar placement="right">
                     {isEditingIcon ? (
@@ -453,6 +484,7 @@ export default function GroupPage() {
                         />
                         <Text style={styles.editLabel}>Group Icon</Text>
                         <IconSelector
+                            groupId={id as string}
                             selectedIcon={group?.icon || { type: 'material', value: 'groups' }}
                             onSelect={handleUpdateIcon}
                         />
@@ -484,8 +516,6 @@ export default function GroupPage() {
                                                 name: group.name,
                                                 info: tentativeInfo
                                             });
-                                        // Update the navigation title and group info
-                                        navigation.setOptions({ title: group.name });
                                         setGroup({ ...group, info: tentativeInfo });
                                         setIsEditingIcon(false);
                                     } catch (error) {
@@ -644,6 +674,8 @@ export default function GroupPage() {
                 onClose={() => setIsCreatingHangout(false)}
                 groupId={id as string}
             />
+            </>
+            ) : null}
         </View>
     )
 }

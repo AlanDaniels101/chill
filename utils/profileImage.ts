@@ -10,12 +10,18 @@ const JPEG_QUALITY = 0.7;
 const userProfileImagePath = (userId: string) => `userProfileImage/${userId}.jpg`;
 const groupProfileImagePath = (groupId: string) => `groupProfileImage/${groupId}.jpg`;
 
+export type ProfileImagePhase = 'picking' | 'uploading';
+
 /**
  * Opens the photo library, squares and shrinks the picked image, then uploads
  * it to the given Storage path. Resolves with the download URL, or null when
  * the user backs out of the picker.
  */
-async function pickAndUploadProfileImage(storagePath: string): Promise<string | null> {
+async function pickAndUploadProfileImage(
+  storagePath: string,
+  onPhase?: (phase: ProfileImagePhase) => void,
+): Promise<string | null> {
+  onPhase?.('picking');
   const picked = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
     allowsEditing: true,
@@ -34,18 +40,28 @@ async function pickAndUploadProfileImage(storagePath: string): Promise<string | 
     .renderAsync();
   const resized = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: JPEG_QUALITY });
 
+  onPhase?.('uploading');
   const storageRef = ref(getStorage(), storagePath);
   // storage.rules only accepts image/jpeg, so the type has to be explicit.
   await putFile(storageRef, resized.uri, { contentType: 'image/jpeg' });
-  return getDownloadURL(storageRef);
+  const downloadUrl = await getDownloadURL(storageRef);
+  // Overwrites reuse the same path, so the URL does not change. A cache-bust
+  // query param forces Image to fetch the new bytes.
+  return `${downloadUrl}&v=${Date.now()}`;
 }
 
-export function uploadUserProfileImage(userId: string): Promise<string | null> {
-  return pickAndUploadProfileImage(userProfileImagePath(userId));
+export function uploadUserProfileImage(
+  userId: string,
+  onPhase?: (phase: ProfileImagePhase) => void,
+): Promise<string | null> {
+  return pickAndUploadProfileImage(userProfileImagePath(userId), onPhase);
 }
 
-export function uploadGroupProfileImage(groupId: string): Promise<string | null> {
-  return pickAndUploadProfileImage(groupProfileImagePath(groupId));
+export function uploadGroupProfileImage(
+  groupId: string,
+  onPhase?: (phase: ProfileImagePhase) => void,
+): Promise<string | null> {
+  return pickAndUploadProfileImage(groupProfileImagePath(groupId), onPhase);
 }
 
 /**

@@ -20,6 +20,7 @@ export default function CreateGroupModal({ visible, onClose }: Props) {
     try {
       const newGroupRef = await getDatabase().ref('/groups').push({
         name: newGroupName,
+        createdAt: Date.now(),
         hangouts: {},
         admins: {
           [userId]: true
