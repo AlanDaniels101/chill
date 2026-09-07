@@ -4,7 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { getDatabase } from '@react-native-firebase/database';
 import QRCode from 'react-native-qrcode-svg';
 import QRScanner from './QRScanner';
-import { joinGroupLink } from '../constants';
+import { joinGroupLink } from '../../constants';
 
 type Props = {
     visible: boolean;

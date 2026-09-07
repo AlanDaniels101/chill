@@ -8,7 +8,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../../../ctx';
 import Linkify from 'react-native-linkify';
 import * as Linking from 'expo-linking';
-import { hangoutLink } from '../../../constants';
+import { hangoutLink } from '../../../../constants';
 import UserAvatar from '../../../components/UserAvatar';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
