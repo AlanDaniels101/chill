@@ -91,7 +91,8 @@
               "RNFBAppCheck",
               "RNFBAuth",
               "RNFBDatabase",
-              "RNFBMessaging"
+              "RNFBMessaging",
+              "RNFBStorage"
             ]
           }
         }
@@ -106,6 +107,12 @@
         "expo-calendar",
         {
           "calendarPermission": "Turning on calendar access allows the app to create calendar events for hangouts."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Photo access allows you to choose a profile picture for yourself or your groups."
         }
       ],
       [

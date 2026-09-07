@@ -2,6 +2,9 @@
   "database": {
     "rules": "database.rules.json"
   },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "functions": [
     {
       "source": "functions",
@@ -25,6 +28,9 @@
     },
     "database": {
       "port": 9000
+    },
+    "storage": {
+      "port": 9199
     },
     "auth": {
       "port": 9099

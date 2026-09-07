@@ -1,0 +1,42 @@
+rules_version = '2';
+
+// Visit https://firebase.google.com/docs/storage/security to learn more about security rules.
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Uploads are resized to 256x256 JPEG client-side, so they land well under
+    // 100KB. The cap only exists to stop someone bypassing the app and pushing
+    // large files into the bucket.
+    function isProfileImage() {
+      return request.resource.size < 1 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+    }
+
+    match /userProfileImage/{imageId} {
+      // Images are only ever fetched by exact path, so listing stays off to keep
+      // the bucket from being enumerated.
+      allow get: if request.auth != null;
+      allow list: if false;
+      // Only the owner may write their own image, at exactly {uid}.jpg
+      allow create, update: if request.auth != null
+        && imageId == request.auth.uid + '.jpg'
+        && isProfileImage();
+      allow delete: if request.auth != null
+        && imageId == request.auth.uid + '.jpg';
+    }
+
+    match /groupProfileImage/{imageId} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      // Storage rules cannot read the Realtime Database, so group admin status
+      // cannot be verified here. Any signed-in user may upload, but only admins
+      // can point groups/{groupId}/icon at the result (see database.rules.json),
+      // so an unauthorized upload is an unreferenced orphan.
+      allow create, update: if request.auth != null && isProfileImage();
+      // Cleanup happens by overwriting the fixed path, or server-side via the
+      // Admin SDK, which bypasses these rules.
+      allow delete: if false;
+    }
+
+    // Everything else is denied by default.
+  }
+}
