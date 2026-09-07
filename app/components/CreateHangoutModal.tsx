@@ -208,6 +208,7 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                     <TextInput
                         style={styles.input}
                         placeholder="Hangout name"
+                        placeholderTextColor="#666"
                         value={name}
                         onChangeText={setName}
                         onFocus={() => setShowPicker(false)}
@@ -261,6 +262,7 @@ export default function CreateHangoutModal({ visible, onClose, groupId }: Props)
                         <TextInput
                             style={[styles.input, styles.locationInput]}
                             placeholder="Add location"
+                            placeholderTextColor="#666"
                             value={location}
                             onChangeText={setLocation}
                             onFocus={() => setShowPicker(false)}
@@ -429,6 +431,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         padding: 12,
         fontSize: 16,
+        color: '#2c3e50',
     },
     modalButtons: {
         flexDirection: 'row',

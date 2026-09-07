@@ -55,11 +55,6 @@ export default function HangoutCard({ hangout }: Props) {
                 });
             }}
         >
-            {!isPast && needsMoreAttendees && (
-                <View style={styles.tentativeBadge}>
-                    <Text style={styles.tentativeText}>Needs {(hangout.minAttendees || 2) - currentAttendees} More</Text>
-                </View>
-            )}
             <MaterialIcons 
                 name={isPast ? "event" : "auto-awesome"} 
                 size={24} 
@@ -67,12 +62,25 @@ export default function HangoutCard({ hangout }: Props) {
                 style={styles.icon} 
             />
             <View style={styles.info}>
-                <Text style={[
-                    styles.name,
-                    isPast && { color: '#666' }
-                ]}>
-                    {hangout.name || 'NO NAME'}
-                </Text>
+                <View style={styles.nameRow}>
+                    <Text
+                        style={[
+                            styles.name,
+                            isPast && { color: '#666' }
+                        ]}
+                        numberOfLines={2}
+                        ellipsizeMode="tail"
+                    >
+                        {hangout.name || 'NO NAME'}
+                    </Text>
+                    {!isPast && needsMoreAttendees && (
+                        <View style={styles.tentativeBadge}>
+                            <Text style={styles.tentativeText}>
+                                Needs {(hangout.minAttendees || 2) - currentAttendees} More
+                            </Text>
+                        </View>
+                    )}
+                </View>
                 <Text style={[
                     styles.time,
                     isPast && { color: '#888' }
@@ -148,10 +156,13 @@ const styles = StyleSheet.create({
         borderColor: '#ff9800',
         shadowColor: '#ff9800',
     },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 8,
+    },
     tentativeBadge: {
-        position: 'absolute',
-        top: 4,
-        right: 6,
+        flexShrink: 0,
         backgroundColor: '#ff9800',
         paddingHorizontal: 12,
         paddingVertical: 4,
@@ -172,6 +183,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     name: {
+        flex: 1,
+        flexShrink: 1,
         fontSize: 18,
         fontWeight: '600',
         color: '#000',
