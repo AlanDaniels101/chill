@@ -96,6 +96,20 @@ describe('User collection rules', () => {
         const otherUserRef = db.ref(`users/${OTHER_UID}/name`);
         await assertSucceeds(otherUserRef.once('value'));
     });
+
+    it('should allow user to read other user\'s profile image', async () => {
+        const context = testEnv.authenticatedContext(TEST_UID);
+        const db = context.database();
+        const otherUserRef = db.ref(`users/${OTHER_UID}/profileImage`);
+        await assertSucceeds(otherUserRef.once('value'));
+    });
+
+    it('should not allow user to write other user\'s profile image', async () => {
+        const context = testEnv.authenticatedContext(TEST_UID);
+        const db = context.database();
+        const otherUserRef = db.ref(`users/${OTHER_UID}/profileImage`);
+        await assertFails(otherUserRef.set('https://example.com/evil.jpg'));
+    });
     
 });
 
@@ -154,6 +168,28 @@ describe('Group collection rules', () => {
         const context = testEnv.unauthenticatedContext();
         const db = context.database();
         const groupRef = db.ref('groups');
+        await assertFails(groupRef.once('value'));
+    });
+
+    it('should allow group members to read their group', async () => {
+        const context = testEnv.authenticatedContext(TEST_GROUP_MEMBER_UID);
+        const db = context.database();
+        const groupRef = db.ref(`groups/${TEST_GROUP_ID}`);
+        await assertSucceeds(groupRef.once('value'));
+    });
+
+    // The join flows read a group before the user is a member of it
+    it('should allow non-members to read a group by id', async () => {
+        const context = testEnv.authenticatedContext(OTHER_UID);
+        const db = context.database();
+        await assertSucceeds(db.ref(`groups/${TEST_GROUP_ID}`).once('value'));
+        await assertSucceeds(db.ref(`groups/${TEST_GROUP_ID}/name`).once('value'));
+    });
+
+    it('should not allow unauthenticated users to read a group by id', async () => {
+        const context = testEnv.unauthenticatedContext();
+        const db = context.database();
+        const groupRef = db.ref(`groups/${TEST_GROUP_ID}`);
         await assertFails(groupRef.once('value'));
     });
     

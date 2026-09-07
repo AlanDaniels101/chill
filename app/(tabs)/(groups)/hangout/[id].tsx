@@ -9,6 +9,7 @@ import { useAuth } from '../../../../ctx';
 import Linkify from 'react-native-linkify';
 import * as Linking from 'expo-linking';
 import { hangoutLink } from '../../../constants';
+import UserAvatar from '../../../components/UserAvatar';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import * as Calendar from 'expo-calendar';
@@ -496,15 +497,22 @@ export default function HangoutPage() {
                     const attendeeIds = Object.keys(hangout.attendees);
                     const attendeePromises = attendeeIds.map(async uid => {
                         try {
-                            const nameSnapshot = await getDatabase()
-                                .ref(`/users/${uid}/name`)
-                                .once('value');
+                            // Fetched child by child because the rules only expose
+                            // name and profileImage on other users. The image is
+                            // caught separately so losing it never costs us the name.
+                            const [nameSnapshot, profileImage] = await Promise.all([
+                                getDatabase().ref(`/users/${uid}/name`).once('value'),
+                                getDatabase().ref(`/users/${uid}/profileImage`).once('value')
+                                    .then((snapshot: any) => snapshot.val() || undefined)
+                                    .catch(() => undefined),
+                            ]);
                             return {
                                 id: uid,
-                                name: nameSnapshot.val() || 'Unknown User'
+                                name: nameSnapshot.val() || 'Unknown User',
+                                profileImage
                             };
                         } catch (error) {
-                            console.error(`Error fetching name for attendee ${uid}:`, error);
+                            console.error(`Error fetching profile for attendee ${uid}:`, error);
                             return {
                                 id: uid,
                                 name: 'Unknown User'
@@ -883,7 +891,7 @@ export default function HangoutPage() {
                                 <>
                                     {attendees[userId] && (
                                         <View style={styles.attendeeItem}>
-                                            <MaterialIcons name="person" size={20} color="#666" style={styles.attendeeIcon} />
+                                            <UserAvatar uri={attendees[userId]?.profileImage} />
                                             <Text style={styles.attendeeName}>You</Text>
                                             {!isPast && (
                                                 <Pressable 
@@ -906,7 +914,7 @@ export default function HangoutPage() {
                                 <>
                                     {Object.values(attendees).map(user => (
                                         <View key={user.id} style={styles.attendeeItem}>
-                                            <MaterialIcons name="person" size={20} color="#666" style={styles.attendeeIcon} />
+                                            <UserAvatar uri={user.profileImage} />
                                             <Text style={styles.attendeeName}>{user.id === userId ? 'You' : user.name}</Text>
                                             {user.id === userId && !isPast && (
                                                 <Pressable 
@@ -1066,9 +1074,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 8,
         paddingHorizontal: 8,
-    },
-    attendeeIcon: {
-        marginRight: 12,
     },
     attendeeName: {
         fontSize: 16,

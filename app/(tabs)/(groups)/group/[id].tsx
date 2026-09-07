@@ -12,7 +12,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AddMemberModal from '../../../components/AddMemberModal';
 import CreateHangoutModal from '../../../components/CreateHangoutModal';
 import NotificationToggle from '../../../components/NotificationToggle';
+import UserAvatar from '../../../components/UserAvatar';
 import Linkify from 'react-native-linkify';
+
+// A member whose profile could not be read still needs a row in the list, but
+// admins shouldn't be able to act on someone they cannot identify.
+type MemberProfile = User & { unresolved?: boolean };
 
 function sortHangouts(hangouts: Hangout[]) {
     const now = new Date().getTime();
@@ -58,7 +63,7 @@ export default function GroupPage() {
     const [group, setGroup] = useState<Group>()
     const [hangouts, setHangouts] = useState<Hangout[]>()
     const [isEditingIcon, setIsEditingIcon] = useState(false);
-    const [users, setUsers] = useState<{ [key: string]: User }>({});
+    const [users, setUsers] = useState<{ [key: string]: MemberProfile }>({});
     const [isAddingMember, setIsAddingMember] = useState(false);
     const [newMemberUid, setNewMemberUid] = useState('');
     const [isCreatingHangout, setIsCreatingHangout] = useState(false);
@@ -164,19 +169,29 @@ export default function GroupPage() {
                     ...Object.keys(group.admins || {})
                 ]);
                 
-                // Only fetch names for users
+                // Fetched child by child because the rules only expose name and
+                // profileImage on other users, not the whole node
                 const userPromises = Array.from(userIds).map(async uid => {
                     try {
-                        const nameSnapshot = await usersRef.child(uid).child('name').once('value');
+                        // The image is caught separately so losing it never costs
+                        // us the name, which matters more to the list
+                        const [nameSnapshot, profileImage] = await Promise.all([
+                            usersRef.child(uid).child('name').once('value'),
+                            usersRef.child(uid).child('profileImage').once('value')
+                                .then((snapshot: any) => snapshot.val() || undefined)
+                                .catch(() => undefined),
+                        ]);
                         return {
                             id: uid,
-                            name: nameSnapshot.val() || 'Unknown User'
+                            name: nameSnapshot.val() || 'Unknown User',
+                            profileImage
                         };
                     } catch (error) {
-                        console.error(`Error fetching name for user ${uid}:`, error);
+                        console.error(`Error fetching profile for user ${uid}:`, error);
                         return {
                             id: uid,
-                            name: 'Unknown User'
+                            name: 'Unknown User',
+                            unresolved: true
                         };
                     }
                 });
@@ -540,11 +555,9 @@ export default function GroupPage() {
                             <ScrollView style={styles.memberList} nestedScrollEnabled={true}>
                                 {group?.admins && Object.keys(group.admins).map(uid => (
                                     <View key={uid} style={styles.userItem}>
-                                        <MaterialIcons 
-                                            name="admin-panel-settings" 
-                                            size={20} 
-                                            color="#5c8ed6" 
-                                            style={styles.adminIcon}
+                                        <UserAvatar
+                                            uri={users[uid]?.profileImage}
+                                            badgeIcon="admin-panel-settings"
                                         />
                                         <Text style={styles.userName}>
                                             {users[uid]?.name || 'Loading...'}
@@ -569,23 +582,20 @@ export default function GroupPage() {
                                     .filter(uid => !group.admins?.[uid])
                                     .map(uid => (
                                         <View key={uid} style={styles.userItem}>
-                                            <MaterialIcons 
-                                                name="person" 
-                                                size={20} 
-                                                color="#666" 
-                                                style={styles.memberIcon}
-                                            />
+                                            <UserAvatar uri={users[uid]?.profileImage} />
                                             <Text style={styles.userName}>
                                                 {users[uid]?.name || 'Loading...'}
                                             </Text>
                                             {isAdmin && (
                                                 <View style={styles.actionButtons}>
-                                                    <Pressable 
-                                                        style={styles.adminToggle}
-                                                        onPress={() => toggleUserAdmin(uid, false)}
-                                                    >
-                                                        <Text style={styles.adminToggleText}>Make Admin</Text>
-                                                    </Pressable>
+                                                    {users[uid] && !users[uid].unresolved && (
+                                                        <Pressable 
+                                                            style={styles.adminToggle}
+                                                            onPress={() => toggleUserAdmin(uid, false)}
+                                                        >
+                                                            <Text style={styles.adminToggleText}>Make Admin</Text>
+                                                        </Pressable>
+                                                    )}
                                                     <Pressable 
                                                         style={styles.removeButton}
                                                         onPress={() => removeMember(uid)}
@@ -798,12 +808,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 8,
         paddingHorizontal: 8,
-    },
-    adminIcon: {
-        marginRight: 8,
-    },
-    memberIcon: {
-        marginRight: 8,
     },
     userName: {
         fontSize: 16,

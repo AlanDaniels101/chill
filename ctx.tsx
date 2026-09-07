@@ -15,6 +15,7 @@ import {
   getToken,
 } from '@react-native-firebase/app-check';
 import * as Application from 'expo-application';
+import { deleteUserProfileImage } from './utils/profileImage';
 
 type AppCheckStatus = 'pending' | 'success' | 'empty' | 'error';
 
@@ -309,6 +310,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         const user = getAuth().currentUser;
         if (!user) return;
 
+        // Delete the Storage object first
+        await deleteUserProfileImage(user.uid);
         await getDatabase().ref(`/users/${user.uid}`).remove();
         await user.delete();
       } catch (e) {

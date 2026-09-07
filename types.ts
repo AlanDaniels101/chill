@@ -31,6 +31,7 @@ export type User = {
     name: string;
     fcmToken?: string;
     hasSetName?: boolean;  // Whether user has set their own name (not default)
+    profileImage?: string;  // Download URL for the image in Cloud Storage
     groups?: {
         [groupId: string]: boolean;  // Groups the user belongs to
     };

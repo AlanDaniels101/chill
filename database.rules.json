@@ -6,6 +6,10 @@
           "name": {
             ".read": "auth !== null"
           },
+          // Readable by others so avatars can render next to names
+          "profileImage": {
+            ".read": "auth !== null"
+          },
           // Users can read and write their own data
           ".read": "$uid === auth.uid",
           ".write": "$uid === auth.uid"
@@ -13,6 +17,11 @@
       },
       "groups": {
         "$groupId": {
+          // Readable by any signed-in user, not just members, because the join
+          // flows read the group (name, existence, own membership) before the
+          // user belongs to it. Reading is no more permissive than joining,
+          // which any signed-in user with the group id can already do.
+          ".read": "auth !== null",
            ".write": "auth !== null && (
             // CREATION
             (!data.exists() && newData.exists()) ||

@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, Alert, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert, TextInput, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { useAuth } from '../../ctx';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
@@ -7,6 +7,7 @@ import { User } from '../../types';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
 import * as Application from 'expo-application';
+import { uploadUserProfileImage } from '../../utils/profileImage';
 
 export default function ProfilePage() {
     const { userId, signOut, deleteAccount } = useAuth();
@@ -17,6 +18,7 @@ export default function ProfilePage() {
     const [hasConfiguredProfile, setHasConfiguredProfile] = useState(false);
     const [bannerVisible, setBannerVisible] = useState(false);
     const [isProfileLoading, setIsProfileLoading] = useState(true);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
 
     useEffect(() => {
         if (!userId) return;
@@ -57,6 +59,26 @@ export default function ProfilePage() {
         if (userId) {
             await Clipboard.setStringAsync(userId);
             Alert.alert('Copied!', 'Your user ID has been copied!');
+        }
+    };
+
+    const handleUpdateProfileImage = async () => {
+        if (!userId || isUploadingImage) return;
+
+        setIsUploadingImage(true);
+        try {
+            const downloadUrl = await uploadUserProfileImage(userId);
+            // Null means the picker was dismissed without choosing anything
+            if (downloadUrl) {
+                await getDatabase()
+                    .ref(`/users/${userId}`)
+                    .update({ profileImage: downloadUrl });
+            }
+        } catch (error) {
+            console.error('Error updating profile image:', error);
+            Alert.alert('Error', 'Failed to update profile picture');
+        } finally {
+            setIsUploadingImage(false);
         }
     };
 
@@ -118,11 +140,31 @@ export default function ProfilePage() {
         <>
             <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
             <View style={styles.header}>
-                <MaterialIcons 
-                    name="account-circle" 
-                    size={80} 
-                    color="#2c3e50" 
-                />
+                <Pressable
+                    style={styles.profileImageButton}
+                    onPress={handleUpdateProfileImage}
+                    disabled={isUploadingImage}
+                >
+                    {user?.profileImage ? (
+                        <Image
+                            source={{ uri: user.profileImage }}
+                            style={styles.profileImage}
+                        />
+                    ) : (
+                        <MaterialIcons 
+                            name="account-circle" 
+                            size={80} 
+                            color="#2c3e50" 
+                        />
+                    )}
+                    <View style={styles.profileImageBadge}>
+                        {isUploadingImage ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <MaterialIcons name="photo-camera" size={16} color="#fff" />
+                        )}
+                    </View>
+                </Pressable>
                 {isEditingName ? (
                     <View style={styles.nameEditContainer}>
                         <TextInput
@@ -273,6 +315,27 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: 40,
         marginBottom: 30,
+    },
+    profileImageButton: {
+        position: 'relative',
+    },
+    profileImage: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+    },
+    profileImageBadge: {
+        position: 'absolute',
+        right: -2,
+        bottom: -2,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#5c8ed6',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: '#fff',
     },
     nameContainer: {
         flexDirection: 'row',
