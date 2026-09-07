@@ -18,6 +18,7 @@ import {onValueCreated, onValueDeleted} from "firebase-functions/v2/database";
 import {onMessagePublished} from "firebase-functions/v2/pubsub";
 import {FirebaseError} from "firebase-admin";
 import {getAuth} from "firebase-admin/auth";
+import {GoogleAuth} from "google-auth-library";
 
 initializeApp();
 
@@ -33,31 +34,52 @@ const database = getDatabase();
 const BILLING_ALERT_TOPIC = "billing-budget-alerts";
 
 /**
- * When a billing budget threshold alert is published to the configured
- * Pub/Sub topic, disables phone authentication by setting SMS region config
- * to an empty allowlist (no regions allowed = no phone sign-in).
- * Firebase does not expose a "disable phone provider" API; the empty
- * allowlist is the only programmatic way to achieve the same effect.
- * Requires the topic to exist and be attached to your budget.
+ * Decodes a Cloud Billing budget notification and reports whether the budget
+ * has been fully spent. Budgets republish to the topic roughly every 20
+ * minutes even when nothing changed, and alertThresholdExceeded is only set
+ * when a threshold is crossed, so the lower default thresholds (50% and 90%)
+ * stay informational and only a full overrun triggers a shutdown.
+ * @param {string | undefined} data - Base64 Pub/Sub message payload.
+ * @return {Record<string, unknown> | null} The notification when the budget
+ *   is fully spent, otherwise null.
+ */
+function parseExceededBudgetNotification(data: string | undefined): Record<string, unknown> | null {
+  if (!data) {
+    return null;
+  }
+  let notification: Record<string, unknown>;
+  try {
+    notification = JSON.parse(Buffer.from(data, "base64").toString("utf-8")) as Record<string, unknown>;
+  } catch (e) {
+    logger.warn("Failed to decode billing notification", e);
+    return null;
+  }
+  const threshold = notification.alertThresholdExceeded;
+  if (typeof threshold !== "number" || threshold < 1) {
+    return null;
+  }
+  return notification;
+}
+
+/**
+ * When the billing budget is fully spent, disables phone authentication by
+ * setting SMS region config to an empty allowlist (no regions allowed = no
+ * phone sign-in). Firebase does not expose a "disable phone provider" API;
+ * the empty allowlist is the only programmatic way to achieve the same
+ * effect. Requires the topic to exist and be attached to your budget.
  */
 export const disablePhoneAuthOnBillingAlert = onMessagePublished(
     BILLING_ALERT_TOPIC,
     async (event) => {
-      const message = event.data?.message;
-      const data = message?.data;
-      let notification: Record<string, unknown> = {};
-      if (data) {
-        try {
-          const decoded = Buffer.from(data, "base64").toString("utf-8");
-          notification = JSON.parse(decoded) as Record<string, unknown>;
-        } catch (e) {
-          logger.warn("Failed to decode billing notification", e);
-        }
+      const notification = parseExceededBudgetNotification(event.data?.message?.data);
+      if (!notification) {
+        return;
       }
-      logger.info("Billing alert received, disabling phone auth", {
-        budgetDisplayName: notification?.budgetDisplayName,
-        costAmount: notification?.costAmount,
-        alertThresholdExceeded: notification?.alertThresholdExceeded,
+
+      logger.warn("Billing budget spent, disabling phone auth", {
+        budgetDisplayName: notification.budgetDisplayName,
+        costAmount: notification.costAmount,
+        budgetAmount: notification.budgetAmount,
       });
 
       try {
@@ -69,6 +91,151 @@ export const disablePhoneAuthOnBillingAlert = onMessagePublished(
         logger.info("Phone authentication disabled via SMS region allowlist (no regions allowed).");
       } catch (err) {
         logger.error("Failed to disable phone auth", err);
+        throw err;
+      }
+    }
+);
+
+/**
+ * Ruleset published when the storage budget is exceeded. Writes are denied
+ * everywhere; `get` stays open because existing profile images are served via
+ * long-lived download URLs that bypass rules anyway, so denying reads would
+ * break the UI without reducing egress.
+ */
+const STORAGE_LOCKDOWN_RULES = `rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow get: if request.auth != null;
+      allow list, write: if false;
+    }
+  }
+}
+`;
+
+const RULES_API = "https://firebaserules.googleapis.com/v1";
+
+const rulesAuth = new GoogleAuth({
+  scopes: ["https://www.googleapis.com/auth/firebase"],
+});
+
+/** A Firebase Security Rules release, as returned by the Rules API. */
+interface RulesRelease {
+  name: string;
+  rulesetName: string;
+}
+
+/**
+ * Finds the Cloud Storage rules release for this project. The release is
+ * looked up rather than constructed so the bucket name never has to be
+ * hardcoded here.
+ * @param {string} projectId - The GCP project ID.
+ * @return {Promise<RulesRelease>} The Cloud Storage rules release.
+ */
+async function getStorageRulesRelease(projectId: string): Promise<RulesRelease> {
+  const client = await rulesAuth.getClient();
+  const res = await client.request<{releases?: RulesRelease[]}>({
+    url: `${RULES_API}/projects/${projectId}/releases`,
+  });
+  const prefix = `projects/${projectId}/releases/firebase.storage/`;
+  const release = (res.data.releases || []).find((r) => r.name.startsWith(prefix));
+  if (!release) {
+    throw new Error("No Cloud Storage rules release found. Deploy storage rules before relying on this function.");
+  }
+  return release;
+}
+
+/**
+ * Reads the rules source belonging to a ruleset.
+ * @param {string} rulesetName - Full ruleset resource name.
+ * @return {Promise<string>} The concatenated rules source.
+ */
+async function getRulesetSource(rulesetName: string): Promise<string> {
+  const client = await rulesAuth.getClient();
+  const res = await client.request<{source?: {files?: {content?: string}[]}}>({
+    url: `${RULES_API}/${rulesetName}`,
+  });
+  return (res.data.source?.files || []).map((file) => file.content || "").join("\n");
+}
+
+/**
+ * Creates the lockdown ruleset and points the Cloud Storage release at it.
+ * @param {string} projectId - The GCP project ID.
+ * @param {string} releaseName - Full release resource name to repoint.
+ * @return {Promise<string>} The newly created ruleset name.
+ */
+async function publishStorageLockdown(projectId: string, releaseName: string): Promise<string> {
+  const client = await rulesAuth.getClient();
+  const created = await client.request<{name: string}>({
+    url: `${RULES_API}/projects/${projectId}/rulesets`,
+    method: "POST",
+    data: {
+      source: {files: [{name: "storage.rules", content: STORAGE_LOCKDOWN_RULES}]},
+    },
+  });
+  await client.request({
+    url: `${RULES_API}/${releaseName}`,
+    method: "PATCH",
+    data: {
+      release: {name: releaseName, rulesetName: created.data.name},
+      updateMask: "ruleset_name",
+    },
+  });
+  return created.data.name;
+}
+
+/**
+ * When the billing budget is fully spent, publishes a ruleset that denies all
+ * Cloud Storage writes. Reads, Auth, Realtime Database and notifications keep
+ * working, so the app degrades instead of going dark.
+ *
+ * Setup, all one-time:
+ * 1. Create a Cloud Billing budget for the project and attach the
+ *    BILLING_ALERT_TOPIC Pub/Sub topic to it under Manage notifications.
+ * 2. Grant this function's runtime service account roles/firebaserules.admin,
+ *    otherwise the Rules API calls fail with 403.
+ *
+ * To recover, run `firebase deploy --only storage` to republish the real
+ * rules from storage.rules. This function detects the lockdown ruleset is
+ * already live and stops re-publishing, which matters because Firebase caps
+ * a project at 500 rulesets.
+ */
+export const disableStorageWritesOnBillingAlert = onMessagePublished(
+    BILLING_ALERT_TOPIC,
+    async (event) => {
+      const notification = parseExceededBudgetNotification(event.data?.message?.data);
+      if (!notification) {
+        return;
+      }
+
+      const projectId = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT;
+      if (!projectId) {
+        logger.error("Project ID unavailable; cannot lock down storage writes.");
+        return;
+      }
+
+      logger.warn("Billing budget spent, locking down storage writes", {
+        budgetDisplayName: notification.budgetDisplayName,
+        costAmount: notification.costAmount,
+        budgetAmount: notification.budgetAmount,
+      });
+
+      try {
+        const release = await getStorageRulesRelease(projectId);
+        const currentSource = await getRulesetSource(release.rulesetName);
+        if (currentSource.trim() === STORAGE_LOCKDOWN_RULES.trim()) {
+          logger.info("Storage writes are already locked down.", {rulesetName: release.rulesetName});
+          return;
+        }
+
+        const rulesetName = await publishStorageLockdown(projectId, release.name);
+        logger.warn("Storage writes locked down.", {
+          releaseName: release.name,
+          rulesetName,
+          replacedRulesetName: release.rulesetName,
+        });
+      } catch (err) {
+        logger.error("Failed to lock down storage writes", err);
         throw err;
       }
     }
