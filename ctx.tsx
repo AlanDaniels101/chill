@@ -16,6 +16,7 @@ import {
 } from '@react-native-firebase/app-check';
 import * as Application from 'expo-application';
 import { deleteUserProfileImage } from './utils/profileImage';
+import { isHangoutNotificationType } from './constants';
 
 type AppCheckStatus = 'pending' | 'success' | 'empty' | 'error';
 
@@ -418,7 +419,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
               
         // Handle the notification based on its type
         const notificationType = remoteMessage.data?.type;
-        if (notificationType === 'new_hangout' || notificationType === 'poll_closed') {
+        if (isHangoutNotificationType(notificationType)) {
           const { groupId, hangoutId } = remoteMessage.data;
           const { title, body } = remoteMessage.notification || {};
 

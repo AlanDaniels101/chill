@@ -130,6 +130,18 @@
               root.child('groups').child(data.parent().child('group').val()).child('admins').child(auth.uid).val() === true
             )"
           },
+          "timeUpdatedBy": {
+            ".write": "auth !== null && newData.val() === auth.uid && (
+              root.child('groups').child(data.parent().child('group').val()).child('members').child(auth.uid).val() === true ||
+              root.child('groups').child(data.parent().child('group').val()).child('admins').child(auth.uid).val() === true
+            )"
+          },
+          "durationUpdatedBy": {
+            ".write": "auth !== null && newData.val() === auth.uid && (
+              root.child('groups').child(data.parent().child('group').val()).child('members').child(auth.uid).val() === true ||
+              root.child('groups').child(data.parent().child('group').val()).child('admins').child(auth.uid).val() === true
+            )"
+          },
           "minAttendees": {
             ".write": "auth !== null && (
               root.child('groups').child(data.parent().child('group').val()).child('members').child(auth.uid).val() === true ||

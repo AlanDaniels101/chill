@@ -8,6 +8,7 @@ import { getDatabase } from '@react-native-firebase/database';
 import { getAuth } from '@react-native-firebase/auth';
 import { Linking } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { isHangoutNotificationType } from '../constants';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -15,7 +16,7 @@ export default function RootLayout() {
     getMessaging().getInitialNotification().then(remoteMessage => {
       console.log('Initial notification check:', remoteMessage);
       const notificationType = remoteMessage?.data?.type;
-      if (notificationType === 'new_hangout' || notificationType === 'poll_closed') {
+      if (isHangoutNotificationType(notificationType)) {
         console.log('Initial notification is hangout-related:', remoteMessage.data);
         const { groupId, hangoutId } = remoteMessage.data;
         if (groupId && hangoutId) {
@@ -29,7 +30,7 @@ export default function RootLayout() {
     const unsubscribe = getMessaging().onNotificationOpenedApp(remoteMessage => {
       console.log('Background notification opened:', remoteMessage);
       const notificationType = remoteMessage?.data?.type;
-      if (notificationType === 'new_hangout' || notificationType === 'poll_closed') {
+      if (isHangoutNotificationType(notificationType)) {
         console.log('Background notification is hangout-related:', remoteMessage.data);
         const { groupId, hangoutId } = remoteMessage.data;
         if (groupId && hangoutId) {

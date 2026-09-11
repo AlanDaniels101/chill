@@ -20,6 +20,8 @@ export type Hangout = {
     location?: string;
     info?: string;  // For additional details, links, etc.
     durationMinutes?: number;
+    timeUpdatedBy?: string;  // Set when rescheduling; read by Cloud Functions
+    durationUpdatedBy?: string;  // Set when changing duration; read by Cloud Functions
 };
 
 export type GroupIcon = {

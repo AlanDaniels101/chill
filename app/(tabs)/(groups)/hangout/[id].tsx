@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Text, View, StyleSheet, Pressable, Alert, Share, ScrollView, TextInput, Image, Platform } from 'react-native';
 import { Hangout, Group, User } from '../../../../types';
 import { getDatabase } from '@react-native-firebase/database';
@@ -14,18 +14,22 @@ import AppDateTimePicker from '../../../components/AppDateTimePicker';
 import { format } from 'date-fns';
 import * as Calendar from 'expo-calendar';
 import {
+    DEFAULT_DURATION_MINUTES,
     formatDurationLabel,
     formatTimeRange,
     getDurationMinutes,
 } from '../../../../utils/duration';
 import DurationPicker from '../../../components/DurationPicker';
+import { confirmAttendeeNotification, countOtherAttendees } from '../../../../utils/hangoutUpdates';
 
 export default function HangoutPage() {
     const navigation = useNavigation();
     const router = useRouter();
     const local = useLocalSearchParams();
     const { id, name } = local;
+    const hangoutId = Array.isArray(id) ? id[0] : id;
     const { userId } = useAuth();
+    const attendeesLoadRef = useRef(0);
 
     const [loadComplete, setLoadComplete] = useState(false);
     const [hangout, setHangout] = useState<Hangout | null>(null);
@@ -33,6 +37,11 @@ export default function HangoutPage() {
     const [attendees, setAttendees] = useState<{ [key: string]: User }>({});
     const [isEditingInfo, setIsEditingInfo] = useState(false);
     const [isEditingDuration, setIsEditingDuration] = useState(false);
+    const [isEditingTime, setIsEditingTime] = useState(false);
+    const [tentativeDurationMinutes, setTentativeDurationMinutes] = useState(DEFAULT_DURATION_MINUTES);
+    const [editTimeDate, setEditTimeDate] = useState(new Date());
+    const [showTimePicker, setShowTimePicker] = useState(false);
+    const [timePickerMode, setTimePickerMode] = useState<'date' | 'time'>('date');
     const [tentativeInfo, setTentativeInfo] = useState('');
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
@@ -75,15 +84,33 @@ export default function HangoutPage() {
                     text: "Decline",
                     style: "destructive",
                     onPress: async () => {
+                        const previousAttendees = attendees;
+                        const previousHangout = hangout;
+
+                        const newAttendees = { ...attendees };
+                        delete newAttendees[userId];
+                        setAttendees(newAttendees);
+                        setHangout(prev => {
+                            if (!prev?.attendees?.[userId]) return prev;
+                            const updatedAttendees = { ...prev.attendees };
+                            delete updatedAttendees[userId];
+                            return {
+                                ...prev,
+                                attendees: Object.keys(updatedAttendees).length > 0
+                                    ? updatedAttendees
+                                    : undefined,
+                            };
+                        });
+
                         try {
-                            // Update local state immediately
-                            const newAttendees = { ...attendees };
-                            delete newAttendees[userId];
-                            setAttendees(newAttendees);
-                            
-                            // Update Firebase
-                            await getDatabase().ref(`/hangouts/${id}/attendees/${userId}`).set(null);
+                            await getDatabase()
+                                .ref(`/hangouts/${hangoutId}/attendees/${userId}`)
+                                .remove();
                         } catch (error) {
+                            setAttendees(previousAttendees);
+                            if (previousHangout) {
+                                setHangout(previousHangout);
+                            }
                             Alert.alert("Error", "Failed to decline the event. Please try again.");
                         }
                     }
@@ -166,16 +193,107 @@ export default function HangoutPage() {
     };
 
     const handleUpdateDuration = async (minutes: number) => {
-        if (!id) return;
+        if (!id || !hangout || !userId) return;
 
-        try {
-            await getDatabase()
-                .ref(`/hangouts/${id}/durationMinutes`)
-                .set(minutes);
-            setHangout(prev => prev ? { ...prev, durationMinutes: minutes } : null);
-        } catch (error) {
-            console.error('Error updating duration:', error);
-            Alert.alert('Error', 'Failed to update duration. Please try again.');
+        const currentMinutes = getDurationMinutes(hangout.durationMinutes);
+        if (minutes === currentMinutes) {
+            setIsEditingDuration(false);
+            return;
+        }
+
+        const save = async () => {
+            try {
+                await getDatabase()
+                    .ref(`/hangouts/${id}`)
+                    .update({
+                        durationMinutes: minutes,
+                        durationUpdatedBy: userId,
+                    });
+                setHangout(prev => prev ? { ...prev, durationMinutes: minutes } : null);
+                setIsEditingDuration(false);
+            } catch (error) {
+                console.error('Error updating duration:', error);
+                Alert.alert('Error', 'Failed to update duration. Please try again.');
+            }
+        };
+
+        confirmAttendeeNotification(
+            'Update duration',
+            countOtherAttendees(hangout.attendees, userId),
+            save,
+        );
+    };
+
+    const startEditingDuration = () => {
+        if (!hangout) return;
+        setTentativeDurationMinutes(getDurationMinutes(hangout.durationMinutes));
+        setIsEditingDuration(true);
+    };
+
+    const handleSaveDuration = () => {
+        handleUpdateDuration(tentativeDurationMinutes);
+    };
+
+    const handleSaveTime = async () => {
+        if (!id || !hangout || !userId || !hangout.time) return;
+
+        const newTimeMs = editTimeDate.getTime();
+        if (newTimeMs <= Date.now()) {
+            Alert.alert('Invalid time', 'Hangout time must be in the future.');
+            return;
+        }
+
+        if (newTimeMs === hangout.time) {
+            setIsEditingTime(false);
+            setShowTimePicker(false);
+            return;
+        }
+
+        const save = async () => {
+            try {
+                await getDatabase()
+                    .ref(`/hangouts/${id}`)
+                    .update({
+                        time: newTimeMs,
+                        timeUpdatedBy: userId,
+                    });
+                setHangout(prev => prev ? { ...prev, time: newTimeMs } : null);
+                setIsEditingTime(false);
+                setShowTimePicker(false);
+            } catch (error) {
+                console.error('Error updating time:', error);
+                Alert.alert('Error', 'Failed to reschedule hangout. Please try again.');
+            }
+        };
+
+        confirmAttendeeNotification(
+            'Reschedule',
+            countOtherAttendees(hangout.attendees, userId),
+            save,
+        );
+    };
+
+    const startEditingTime = () => {
+        if (!hangout?.time) return;
+        setEditTimeDate(new Date(hangout.time));
+        setTimePickerMode('date');
+        setShowTimePicker(false);
+        setIsEditingTime(true);
+    };
+
+    const onTimePickerChange = (event: any, selectedDate?: Date) => {
+        if (Platform.OS === 'android') {
+            setShowTimePicker(false);
+            if (event.type === 'set' && selectedDate) {
+                setEditTimeDate(selectedDate);
+            }
+        } else {
+            if (selectedDate) {
+                setEditTimeDate(selectedDate);
+            }
+            if (event.type === 'dismissed') {
+                setShowTimePicker(false);
+            }
         }
     };
 
@@ -456,7 +574,9 @@ export default function HangoutPage() {
             headerBackTitle: "Back",
         });
 
-        const hangoutRef = getDatabase().ref(`/hangouts/${id}`);
+        if (!hangoutId) return;
+
+        const hangoutRef = getDatabase().ref(`/hangouts/${hangoutId}`);
         
         const onHangoutUpdate = async (snapshot: any) => {
             try {
@@ -515,6 +635,7 @@ export default function HangoutPage() {
                 });
 
                 // Get attendees data
+                const loadId = ++attendeesLoadRef.current;
                 if (hangout.attendees) {
                     const attendeeIds = Object.keys(hangout.attendees);
                     const attendeePromises = attendeeIds.map(async uid => {
@@ -544,7 +665,11 @@ export default function HangoutPage() {
                     const attendeeData = Object.fromEntries(
                         (await Promise.all(attendeePromises)).map(user => [user.id, user])
                     );
-                    setAttendees(attendeeData);
+                    if (loadId === attendeesLoadRef.current) {
+                        setAttendees(attendeeData);
+                    }
+                } else if (loadId === attendeesLoadRef.current) {
+                    setAttendees({});
                 }
 
                 setLoadComplete(true);
@@ -564,7 +689,7 @@ export default function HangoutPage() {
         return () => {
             hangoutRef.off('value', onHangoutUpdate);
         };
-    }, [id, name]);
+    }, [hangoutId, name]);
 
     if (!loadComplete) return null;
 
@@ -833,14 +958,81 @@ export default function HangoutPage() {
                     <View style={styles.infoSection}>
                         <View style={styles.infoRow}>
                             <MaterialIcons name="schedule" size={24} color="#666" />
-                            <Text style={styles.infoText}>
-                                {hangout?.datetimePollInProgress
-                                    ? 'TBD'
-                                    : hangout?.time
-                                        ? formatTimeRange(hangout.time, hangout.durationMinutes)
-                                        : date.toLocaleString()}
-                            </Text>
-                            {!hangout?.datetimePollInProgress && hangout?.time && (
+                            {group?.members?.[userId] && !isPast && isEditingTime ? (
+                                <View style={styles.timeEditSection}>
+                                    <View style={styles.dateTimeContainer}>
+                                        <Pressable
+                                            style={styles.dateTimeButton}
+                                            onPress={() => {
+                                                setTimePickerMode('date');
+                                                setShowTimePicker(true);
+                                            }}
+                                        >
+                                            <Text style={styles.dateTimeButtonText}>
+                                                {format(editTimeDate, 'MMM d, yyyy')}
+                                            </Text>
+                                        </Pressable>
+                                        <Pressable
+                                            style={styles.dateTimeButton}
+                                            onPress={() => {
+                                                setTimePickerMode('time');
+                                                setShowTimePicker(true);
+                                            }}
+                                        >
+                                            <Text style={styles.dateTimeButtonText}>
+                                                {format(editTimeDate, 'h:mm a')}
+                                            </Text>
+                                        </Pressable>
+                                    </View>
+                                    {showTimePicker && (
+                                        <View style={styles.pickerContainer}>
+                                            <AppDateTimePicker
+                                                value={editTimeDate}
+                                                mode={timePickerMode}
+                                                is24Hour={false}
+                                                onChange={onTimePickerChange}
+                                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                            />
+                                        </View>
+                                    )}
+                                    <View style={styles.timeEditActions}>
+                                        <Pressable
+                                            style={styles.timeEditCancelButton}
+                                            onPress={() => {
+                                                setIsEditingTime(false);
+                                                setShowTimePicker(false);
+                                            }}
+                                        >
+                                            <Text style={styles.timeEditCancelText}>Cancel</Text>
+                                        </Pressable>
+                                        <Pressable
+                                            style={styles.timeEditSaveButton}
+                                            onPress={handleSaveTime}
+                                        >
+                                            <Text style={styles.timeEditSaveText}>Save</Text>
+                                        </Pressable>
+                                    </View>
+                                </View>
+                            ) : (
+                                <>
+                                    <Text style={styles.infoText}>
+                                        {hangout?.datetimePollInProgress
+                                            ? 'TBD'
+                                            : hangout?.time
+                                                ? formatTimeRange(hangout.time, hangout.durationMinutes)
+                                                : date.toLocaleString()}
+                                    </Text>
+                                    {group?.members?.[userId] && !isPast && !hangout?.datetimePollInProgress && hangout?.time && (
+                                        <Pressable
+                                            style={styles.timeEditButton}
+                                            onPress={startEditingTime}
+                                        >
+                                            <MaterialIcons name="edit" size={18} color="#666" />
+                                        </Pressable>
+                                    )}
+                                </>
+                            )}
+                            {!hangout?.datetimePollInProgress && hangout?.time && !isEditingTime && (
                                 <Pressable
                                     style={styles.addToCalendarButton}
                                     onPress={handleAddToCalendar}
@@ -858,7 +1050,7 @@ export default function HangoutPage() {
                                     {group?.members?.[userId] && !isPast && !isEditingDuration ? (
                                         <Pressable
                                             style={styles.durationButton}
-                                            onPress={() => setIsEditingDuration(true)}
+                                            onPress={startEditingDuration}
                                         >
                                             <Text style={styles.infoText}>
                                                 {formatDurationLabel(getDurationMinutes(hangout.durationMinutes))}
@@ -875,15 +1067,23 @@ export default function HangoutPage() {
                                     <View style={styles.durationEditSection}>
                                         <DurationPicker
                                             startTime={hangout.time}
-                                            value={getDurationMinutes(hangout.durationMinutes)}
-                                            onChange={handleUpdateDuration}
+                                            value={tentativeDurationMinutes}
+                                            onChange={setTentativeDurationMinutes}
                                         />
-                                        <Pressable
-                                            style={styles.durationDoneButton}
-                                            onPress={() => setIsEditingDuration(false)}
-                                        >
-                                            <Text style={styles.durationDoneText}>Done</Text>
-                                        </Pressable>
+                                        <View style={styles.timeEditActions}>
+                                            <Pressable
+                                                style={styles.timeEditCancelButton}
+                                                onPress={() => setIsEditingDuration(false)}
+                                            >
+                                                <Text style={styles.timeEditCancelText}>Cancel</Text>
+                                            </Pressable>
+                                            <Pressable
+                                                style={styles.timeEditSaveButton}
+                                                onPress={handleSaveDuration}
+                                            >
+                                                <Text style={styles.timeEditSaveText}>Save</Text>
+                                            </Pressable>
+                                        </View>
                                     </View>
                                 )}
                             </View>
@@ -1079,14 +1279,35 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     durationEditSection: {
+        flex: 1,
         gap: 8,
     },
-    durationDoneButton: {
-        alignSelf: 'flex-end',
+    timeEditSection: {
+        flex: 1,
+        gap: 8,
+    },
+    timeEditButton: {
+        padding: 4,
+    },
+    timeEditActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 12,
+    },
+    timeEditCancelButton: {
         paddingVertical: 6,
         paddingHorizontal: 12,
     },
-    durationDoneText: {
+    timeEditCancelText: {
+        color: '#666',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    timeEditSaveButton: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+    },
+    timeEditSaveText: {
         color: '#5c8ed6',
         fontSize: 16,
         fontWeight: '600',

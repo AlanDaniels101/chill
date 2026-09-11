@@ -532,11 +532,16 @@ describe('Hangout collection rules', () => {
         await assertSucceeds(hangoutRef.child('name').set('Edited Test Hangout'));
         await assertSucceeds(hangoutRef.child('info').set('Bring snacks'));
         await assertSucceeds(hangoutRef.child('durationMinutes').set(120));
+        await assertSucceeds(hangoutRef.child('time').set(Date.now() + 86400000));
+        await assertSucceeds(hangoutRef.child('timeUpdatedBy').set(TEST_GROUP_MEMBER_UID));
+        await assertSucceeds(hangoutRef.child('durationUpdatedBy').set(TEST_GROUP_MEMBER_UID));
 
         // Should fail - editing protected fields
         await assertFails(hangoutRef.child('group').set('new-group-id'));
         await assertFails(hangoutRef.child('createdBy').set(OTHER_UID));
         await assertFails(hangoutRef.child('createdAnonymously').set(true));
+        await assertFails(hangoutRef.child('timeUpdatedBy').set(OTHER_UID));
+        await assertFails(hangoutRef.child('durationUpdatedBy').set(OTHER_UID));
         await assertFails(hangoutRef.update({
             name: 'New Name',
             group: 'new-group-id'

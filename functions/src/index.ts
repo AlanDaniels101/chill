@@ -14,7 +14,7 @@ import {formatDistanceToNow} from "date-fns";
 import {initializeApp} from "firebase-admin/app";
 import {getDatabase} from "firebase-admin/database";
 import {getMessaging} from "firebase-admin/messaging";
-import {onValueCreated, onValueDeleted} from "firebase-functions/v2/database";
+import {onValueCreated, onValueDeleted, onValueUpdated} from "firebase-functions/v2/database";
 import {onMessagePublished} from "firebase-functions/v2/pubsub";
 import {FirebaseError} from "firebase-admin";
 import {getAuth} from "firebase-admin/auth";
@@ -269,41 +269,144 @@ export const logPhoneAuthAttempt = onCall<LogPhoneAuthAttemptRequest>(
 );
 const messaging = getMessaging();
 
+type FcmMessage = {
+    notification: { title: string; body: string };
+    data: { groupId: string; hangoutId: string; type: string; title: string; body: string; click_action: string };
+    android: {
+        priority: "high";
+        notification: {
+            clickAction: string;
+            channelId: string;
+            icon: string;
+            color: string;
+        };
+    };
+    apns: {
+        headers: {
+            "apns-priority": string;
+        };
+        payload: {
+            aps: {
+                sound: string;
+                badge: number;
+                contentAvailable: boolean;
+            };
+        };
+    };
+};
+
+/**
+ * Sends FCM messages to the provided tokens.
+ * @param {string[]} fcmTokens - Device tokens to notify.
+ * @param {FcmMessage} message - The FCM message payload.
+ * @return {Promise<void>}
+ */
+async function sendFcmToTokens(fcmTokens: string[], message: FcmMessage): Promise<void> {
+    if (fcmTokens.length === 0) {
+        logger.debug("No FCM tokens to send notifications to");
+        return;
+    }
+
+    logger.debug("Sending FCM message:", JSON.stringify(message));
+
+    try {
+        const messages = fcmTokens.map((token: string) => ({
+            ...message,
+            token: token,
+        }));
+
+        const response = await messaging.sendEach(messages);
+        logger.debug(`Notifications sent: ${response.successCount}/${fcmTokens.length}`);
+
+        if (response.failureCount > 0) {
+            const failedTokens: {token: string, error: FirebaseError | unknown}[] = [];
+            response.responses.forEach((resp, idx) => {
+                if (!resp.success) {
+                    failedTokens.push({token: fcmTokens[idx], error: resp.error});
+                }
+            });
+            logger.error("Failed to send notifications:", failedTokens);
+        }
+    } catch (error) {
+        logger.error("Error sending notifications:", error);
+    }
+}
+
+/**
+ * Builds the standard hangout notification payload.
+ * @param {object} params - Notification details.
+ * @return {FcmMessage} The FCM message object.
+ */
+function buildHangoutNotification(params: {
+    groupId: string;
+    hangoutId: string;
+    type: string;
+    title: string;
+    body: string;
+}): FcmMessage {
+    const {groupId, hangoutId, type, title, body} = params;
+    return {
+        notification: {title, body},
+        data: {
+            groupId,
+            hangoutId,
+            type,
+            title,
+            body,
+            click_action: "OPEN_HANGOUT_DETAILS",
+        },
+        android: {
+            priority: "high" as const,
+            notification: {
+                clickAction: "OPEN_HANGOUT_DETAILS",
+                channelId: "hangouts",
+                icon: "notification_icon",
+                color: "#4CAF50",
+            },
+        },
+        apns: {
+            headers: {
+                "apns-priority": "10",
+            },
+            payload: {
+                aps: {
+                    sound: "default",
+                    badge: 1,
+                    contentAvailable: true,
+                },
+            },
+        },
+    };
+}
+
+/**
+ * Formats a duration in minutes for notification copy.
+ * @param {number} minutes - Duration in minutes.
+ * @return {string} Human-readable duration label.
+ */
+function formatDurationMinutes(minutes: number): string {
+    if (minutes === 30) return "30 min";
+    if (minutes === 60) return "1 hr";
+    if (minutes === 120) return "2 hr";
+    if (minutes === 1440) return "All day";
+    if (minutes < 60) return `${minutes} min`;
+    if (minutes % 60 === 0) return `${minutes / 60} hr`;
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours} hr ${remainingMinutes} min`;
+}
+
 /**
  * Helper function to send notifications to group members
  * @param {string} groupId - The group ID
  * @param {string} hangoutId - The hangout ID
- * @param {object} message - The FCM message object
+ * @param {FcmMessage} message - The FCM message object
  * @return {Promise<void>}
  */
 async function sendNotificationsToGroup(
     groupId: string,
     hangoutId: string,
-    message: {
-        notification: { title: string; body: string };
-        data: { groupId: string; hangoutId: string; type: string; title: string; body: string; click_action: string };
-        android: {
-            priority: "high";
-            notification: {
-                clickAction: string;
-                channelId: string;
-                icon: string;
-                color: string;
-            };
-        };
-        apns: {
-            headers: {
-                "apns-priority": string;
-            };
-            payload: {
-                aps: {
-                    sound: string;
-                    badge: number;
-                    contentAvailable: boolean;
-                };
-            };
-        };
-    }
+    message: FcmMessage
 ): Promise<void> {
     // Fetch the group members
     const groupRef = database.ref(`groups/${groupId}/members`);
@@ -335,39 +438,47 @@ async function sendNotificationsToGroup(
         }
     }
     logger.debug(`FCM tokens retrieved: ${fcmTokens.length}`);
+    await sendFcmToTokens(fcmTokens, message);
+}
 
-    // Skip if no tokens to send to
-    if (fcmTokens.length === 0) {
-        logger.debug("No FCM tokens to send notifications to");
+/**
+ * Sends notifications to RSVP'd attendees who have opted in.
+ * @param {string} groupId - The group ID.
+ * @param {string} hangoutId - The hangout ID.
+ * @param {string[]} attendeeIds - Attendee user IDs to notify.
+ * @param {FcmMessage} message - The FCM message object.
+ * @return {Promise<void>}
+ */
+async function sendNotificationsToAttendees(
+    groupId: string,
+    hangoutId: string,
+    attendeeIds: string[],
+    message: FcmMessage,
+): Promise<void> {
+    if (attendeeIds.length === 0) {
+        logger.debug("No attendees to notify");
         return;
     }
 
-    logger.debug("Sending FCM message:", JSON.stringify(message));
+    const fcmTokens: string[] = [];
+    for (const memberId of attendeeIds) {
+        const userPrefsRef = database.ref(`users/${memberId}/notificationPreferences/${groupId}`);
+        const notificationEnabled = (await userPrefsRef.once("value")).val();
 
-    try {
-        // Create messages for each token
-        const messages = fcmTokens.map((token: string) => ({
-            ...message,
-            token: token,
-        }));
-        
-        // Send the notifications
-        const response = await messaging.sendEach(messages);
-        logger.debug(`Notifications sent: ${response.successCount}/${fcmTokens.length}`);
-        
-        // Log any failures
-        if (response.failureCount > 0) {
-            const failedTokens: {token: string, error: FirebaseError | unknown}[] = [];
-            response.responses.forEach((resp, idx) => {
-                if (!resp.success) {
-                    failedTokens.push({token: fcmTokens[idx], error: resp.error});
-                }
-            });
-            logger.error("Failed to send notifications:", failedTokens);
+        if (!notificationEnabled) {
+            continue;
         }
-    } catch (error) {
-        logger.error("Error sending notifications:", error);
+
+        const userRef = database.ref(`users/${memberId}/fcmToken`);
+        const fcmToken = (await userRef.once("value")).val();
+
+        if (fcmToken) {
+            fcmTokens.push(fcmToken);
+        }
     }
+
+    logger.debug(`Attendee FCM tokens retrieved: ${fcmTokens.length}`);
+    await sendFcmToTokens(fcmTokens, message);
 }
 
 export const notifyGroupSubscribers = onValueCreated(
@@ -515,6 +626,104 @@ export const notifyPollClosed = onValueDeleted(
         };
 
         await sendNotificationsToGroup(groupId, hangoutId, message);
+    }
+);
+
+export const notifyTimeChanged = onValueUpdated(
+    "hangouts/{hangoutId}/time",
+    async (event) => {
+        const hangoutId = event.params.hangoutId;
+        const oldTime = event.data.before.val();
+        const newTime = event.data.after.val();
+
+        if (typeof oldTime !== "number" || typeof newTime !== "number" || oldTime === newTime) {
+            return;
+        }
+
+        logger.info(`Hangout time changed - ID: ${hangoutId}`);
+
+        const hangoutRef = database.ref(`hangouts/${hangoutId}`);
+        const hangout = (await hangoutRef.once("value")).val();
+
+        if (!hangout || hangout.datetimePollInProgress) {
+            return;
+        }
+
+        const groupId = hangout.group;
+        if (!groupId) {
+            logger.warn("Hangout doesn't have a groupId, skipping notification");
+            return;
+        }
+
+        const changedBy = hangout.timeUpdatedBy;
+        const attendeeIds = Object.keys(hangout.attendees || {}).filter((uid) => uid !== changedBy);
+
+        const hangoutName = hangout?.name || "Hangout";
+        const newTimeLabel = formatDistanceToNow(newTime, {addSuffix: true});
+        const oldTimeLabel = formatDistanceToNow(oldTime, {addSuffix: true});
+        const title = `Rescheduled: ${hangoutName}`;
+        const body = `Now ${newTimeLabel} (was ${oldTimeLabel})`;
+        const message = buildHangoutNotification({
+            groupId,
+            hangoutId,
+            type: "time_changed",
+            title,
+            body,
+        });
+
+        await sendNotificationsToAttendees(groupId, hangoutId, attendeeIds, message);
+
+        if (changedBy) {
+            await hangoutRef.child("timeUpdatedBy").remove();
+        }
+    }
+);
+
+export const notifyDurationChanged = onValueUpdated(
+    "hangouts/{hangoutId}/durationMinutes",
+    async (event) => {
+        const hangoutId = event.params.hangoutId;
+        const oldDuration = event.data.before.val();
+        const newDuration = event.data.after.val();
+
+        if (typeof oldDuration !== "number" || typeof newDuration !== "number" || oldDuration === newDuration) {
+            return;
+        }
+
+        logger.info(`Hangout duration changed - ID: ${hangoutId}`);
+
+        const hangoutRef = database.ref(`hangouts/${hangoutId}`);
+        const hangout = (await hangoutRef.once("value")).val();
+
+        if (!hangout || hangout.datetimePollInProgress) {
+            return;
+        }
+
+        const groupId = hangout.group;
+        if (!groupId) {
+            logger.warn("Hangout doesn't have a groupId, skipping notification");
+            return;
+        }
+
+        const changedBy = hangout.durationUpdatedBy;
+        const attendeeIds = Object.keys(hangout.attendees || {}).filter((uid) => uid !== changedBy);
+
+        const hangoutName = hangout?.name || "Hangout";
+        const title = `Duration updated: ${hangoutName}`;
+        const body = `Now ${formatDurationMinutes(newDuration)} (was ${formatDurationMinutes(oldDuration)})`;
+        const message = buildHangoutNotification({
+            groupId,
+            hangoutId,
+            type: "duration_changed",
+            title,
+            body,
+        });
+
+        await sendNotificationsToAttendees(groupId, hangoutId, attendeeIds, message);
+
+        if (changedBy) {
+            await hangoutRef.child("durationUpdatedBy").remove();
+        }
     }
 );
 
