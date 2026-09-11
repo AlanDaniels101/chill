@@ -371,7 +371,7 @@ function buildHangoutNotification(params: {
             payload: {
                 aps: {
                     sound: "default",
-                    badge: 1,
+                    badge: 0,
                     contentAvailable: true,
                 },
             },
@@ -542,7 +542,7 @@ export const notifyGroupSubscribers = onValueCreated(
                 payload: {
                     aps: {
                         sound: "default",
-                        badge: 1,
+                        badge: 0,
                         contentAvailable: true, // Important for background delivery
                     },
                 },
@@ -618,7 +618,7 @@ export const notifyPollClosed = onValueDeleted(
                 payload: {
                     aps: {
                         sound: "default",
-                        badge: 1,
+                        badge: 0,
                         contentAvailable: true,
                     },
                 },
