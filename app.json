@@ -15,7 +15,8 @@
       "bundleIdentifier": "com.alan101.chill",
       "googleServicesFile": "./GoogleService-Info.plist",
       "entitlements": {
-        "aps-environment": "development"
+        "aps-environment": "development",
+        "com.apple.developer.devicecheck.appattest-environment": "production"
       },
       "infoPlist": {
         "UIBackgroundModes": ["remote-notification"],
